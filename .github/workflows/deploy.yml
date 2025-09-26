@@ -1,0 +1,42 @@
+name: L1 Activity Automation CI/CD
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest    # GitHub's machine (always ubuntu-latest)
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Deploy to Amazon Linux EC2
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ec2-user                    # Your Amazon Linux username
+        key: ${{ secrets.EC2_SSH_KEY }}
+        script: |
+          # Go to app directory
+          cd /home/ec2-user/l1-activity-automation
+          
+          # Pull latest code
+          git pull origin main
+          
+          # Install/update backend
+          cd backend
+          source venv/bin/activate || python3 -m venv venv && source venv/bin/activate
+          pip install -r requirements.txt
+          
+          # Build frontend
+          cd ../frontend
+          npm install
+          npm run build
+          sudo cp -r build/* /var/www/html/
+          
+          # Restart services
+          sudo systemctl restart l1-automation
+          sudo systemctl restart nginx
+          
+          echo "✅ Deployment completed successfully!"
