@@ -342,7 +342,7 @@ def check_cloudwatch_agent_status(instance_id, region, credentials):
         aws_session_token=credentials['SessionToken']
     )
     
-    namespaces_to_check = ['CWAgent', 'AWS/System']
+    namespaces_to_check = ['CWAgent', 'Windows System']
     
     for namespace in namespaces_to_check:
         try:
