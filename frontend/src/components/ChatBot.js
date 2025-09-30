@@ -322,7 +322,7 @@ Please check the instance permissions and try again.`,
             setTimeout(() => fetchAccountGroups(), 1000);
           } else {
             // Add helpful suggestions
-            botReply += "\n\n💡 Try saying:\n• 'configure cloudwatch agent'\n• 'set up alarms'\n• 'show my instances'";
+            botReply += "\n\n💡 Try saying:\n• 'configure cloudwatch agent'\n• 'set up alarms'\n• 'initiate cloudwatch'";
           }
           
           setMessages(prev => [...prev, { from: 'bot', text: botReply, type: 'text' }]);
