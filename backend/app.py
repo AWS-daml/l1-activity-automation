@@ -1,4 +1,3 @@
-
 import os
 import json
 import traceback
@@ -252,10 +251,17 @@ def create_cross_account_cloudwatch_client(account_id, region):
         logging.error(f"Failed to create CloudWatch client for account {account_id}: {e}")
         raise
 
-def check_cloudwatch_alarms_status(cloudwatch_client, instance_id):
-    """✅ ENHANCED: Comprehensive real-time alarm detection"""
+# ✅ UPDATED: Enhanced alarm detection function to support instance names
+def check_cloudwatch_alarms_status(cloudwatch_client, instance_id, instance_name=None):
+    """✅ ENHANCED: Comprehensive real-time alarm detection WITH INSTANCE NAMES"""
     try:
-        logging.info(f"🔍 Checking alarms for instance: {instance_id}")
+        # Create display name with BOTH name and ID
+        if instance_name and instance_name != "No Name":
+            display_identifier = f"{instance_name} ({instance_id})"
+        else:
+            display_identifier = instance_id
+            
+        logging.info(f"🔍 Checking alarms for: {display_identifier}")
         
         # Get all alarms using paginator for complete results
         paginator = cloudwatch_client.get_paginator('describe_alarms')
@@ -276,7 +282,19 @@ def check_cloudwatch_alarms_status(cloudwatch_client, instance_id):
                     logging.info(f"✅ Found alarm (name match): {alarm_name} - State: {alarm.get('StateValue')}")
                     continue
                 
-                # ✅ Method 2: Check dimensions for exact match
+                # ✅ Method 2: Check if alarm name contains instance name (if provided)
+                if (instance_name and instance_name != "No Name" and 
+                    instance_name.replace(' ', '-') in alarm_name):
+                    instance_alarms.append({
+                        'name': alarm_name,
+                        'state': alarm.get('StateValue', 'UNKNOWN'),
+                        'reason': alarm.get('StateReason', ''),
+                        'updated': alarm.get('StateUpdatedTimestamp', '').isoformat() if alarm.get('StateUpdatedTimestamp') else 'Unknown'
+                    })
+                    logging.info(f"✅ Found alarm (instance name match): {alarm_name} - State: {alarm.get('StateValue')}")
+                    continue
+                
+                # ✅ Method 3: Check dimensions for exact match
                 for dimension in alarm.get('Dimensions', []):
                     if (dimension.get('Name') == 'InstanceId' and 
                         dimension.get('Value') == instance_id):
@@ -289,8 +307,8 @@ def check_cloudwatch_alarms_status(cloudwatch_client, instance_id):
                         logging.info(f"✅ Found alarm (dimension match): {alarm_name} - State: {alarm.get('StateValue')}")
                         break
         
-        # ✅ Log all found alarms with details
-        logging.info(f"📊 Total alarms found for {instance_id}: {len(instance_alarms)}")
+        # ✅ Log all found alarms with BOTH name and ID
+        logging.info(f"📊 Total alarms found for {display_identifier}: {len(instance_alarms)}")
         for alarm in instance_alarms:
             logging.info(f"   - {alarm['name']} [{alarm['state']}] - Updated: {alarm['updated']}")
         
@@ -306,18 +324,19 @@ def check_cloudwatch_alarms_status(cloudwatch_client, instance_id):
                     logging.info(f"📈 Found alarm type '{alarm_type}' in {alarm['name']}")
                     break
         
-        logging.info(f"📋 Alarm types detected for {instance_id}: {list(found_types)}")
+        logging.info(f"📋 Alarm types detected for {display_identifier}: {list(found_types)}")
         
         # ✅ Consider configured if we have at least 3 different alarm types
         # This matches your CloudWatch console showing CPU, Memory, Disk, StatusCheck
         is_configured = len(found_types) >= 3
         
-        logging.info(f"🎯 Final alarm status for {instance_id}: {is_configured} ({len(instance_alarms)} alarms, {len(found_types)} types)")
+        logging.info(f"🎯 Final alarm status for {display_identifier}: {is_configured} ({len(instance_alarms)} alarms, {len(found_types)} types)")
         
         return is_configured
         
     except Exception as e:
-        logging.error(f"❌ Error checking alarm status for {instance_id}: {e}")
+        display_name = display_identifier if 'display_identifier' in locals() else instance_id
+        logging.error(f"❌ Error checking alarm status for {display_name}: {e}")
         logging.error(f"Full traceback: {traceback.format_exc()}")
         return False
 
@@ -413,6 +432,7 @@ def check_cloudwatch_agent_status(instance_id, region, credentials):
         'suggestions': ['Install CloudWatch agent', 'Check IAM permissions', 'Verify instance connectivity']
     }
 
+# ✅ UPDATED: Enhanced instance discovery function to pass instance names to alarm checking
 def discover_instances_in_account(account_id, credentials):
     logging.info(f"Discovering instances in account: {account_id}")
     instances = []
@@ -465,17 +485,20 @@ def discover_instances_in_account(account_id, credentials):
                         # ✅ Check CloudWatch agent status
                         cw_status = check_cloudwatch_agent_status(instance_id, region, credentials)
                         
-                        # ✅ Check for alarms if agent is configured AND we have CloudWatch client for this region
+                        # ✅ UPDATED: Check for alarms - NOW PASS BOTH instance_id AND instance_name
                         alarms_configured = False
                         if cw_status['configured'] and cloudwatch_clients.get(region):
-                            logging.info(f"🔍 Checking alarms for {instance_id} (agent configured)")
-                            alarms_configured = check_cloudwatch_alarms_status(cloudwatch_clients[region], instance_id)
-                            logging.info(f"🎯 Alarm result for {instance_id}: {alarms_configured}")
+                            logging.info(f"🔍 Checking alarms for {instance_id} ({instance_name}) - agent configured")
+                            # ✅ PASS BOTH instance_id AND instance_name
+                            alarms_configured = check_cloudwatch_alarms_status(
+                                cloudwatch_clients[region], instance_id, instance_name
+                            )
+                            logging.info(f"🎯 Alarm result for {instance_name} ({instance_id}): {alarms_configured}")
                         else:
                             if not cw_status['configured']:
-                                logging.info(f"⏭️ Skipping alarm check for {instance_id} (agent not configured)")
+                                logging.info(f"⏭️ Skipping alarm check for {instance_name} ({instance_id}) - agent not configured")
                             else:
-                                logging.info(f"⏭️ Skipping alarm check for {instance_id} (no CloudWatch client)")
+                                logging.info(f"⏭️ Skipping alarm check for {instance_name} ({instance_id}) - no CloudWatch client")
                             
                     else:
                         cw_status = {
@@ -505,7 +528,7 @@ def discover_instances_in_account(account_id, credentials):
             logging.error(f"Error discovering instances in {region}: {e}")
             continue
     
-    # ✅ Log final instance summary
+    # ✅ UPDATED: Log final instance summary with instance names
     total_instances = len(instances)
     running_instances = len([i for i in instances if i['State'] == 'running'])
     agent_configured = len([i for i in instances if i['CloudWatchConfigured']])
@@ -514,6 +537,11 @@ def discover_instances_in_account(account_id, credentials):
     logging.info(f"📊 Instance discovery summary for account {account_id}:")
     logging.info(f"   Total: {total_instances}, Running: {running_instances}")
     logging.info(f"   Agent Configured: {agent_configured}, Alarms Configured: {alarms_configured}")
+    
+    # ✅ Log instances with names for better visibility
+    for instance in instances[:5]:  # Log first 5 instances as sample
+        name_display = f"{instance['InstanceName']} ({instance['InstanceId']})" if instance['InstanceName'] != "No Name" else instance['InstanceId']
+        logging.info(f"   📋 {name_display} - Agent: {instance['CloudWatchConfigured']}, Alarms: {instance['AlarmsConfigured']}")
     
     return instances
 
@@ -526,8 +554,8 @@ def home():
     return jsonify({
         "message": "L1 Agentic CloudWatch Bot API is running.", 
         "region": AWS_REGION,
-        "version": "2.3.0",  # ✅ Production version
-        "features": ["CloudWatch Agent Deployment", "Real-time Alarm Detection", "Multi-Account Discovery"],
+        "version": "2.4.0",  # ✅ Updated version for instance name support
+        "features": ["CloudWatch Agent Deployment", "Real-time Alarm Detection with Instance Names", "Multi-Account Discovery"],
         "environment": os.getenv('FLASK_ENV', 'production')
     })
 
@@ -589,7 +617,7 @@ def discover_instances(account_id):
         alarms_configured_instances = len([i for i in instances if i['AlarmsConfigured']])
         unconfigured_count = len([i for i in instances if i['ActionNeeded'] and i['State'] == 'running'])
         
-        # ✅ Enhanced logging for debugging
+        # ✅ Enhanced logging for debugging with instance names
         logging.info(f"📈 Final summary for account {account_id}:")
         logging.info(f"   Total: {total_instances}, Running: {running_instances}")
         logging.info(f"   Agent Configured: {configured_instances}, Alarms Configured: {alarms_configured_instances}")
@@ -682,6 +710,7 @@ def deploy_cloudwatch_agent():
         logging.error(f"Full traceback: {traceback.format_exc()}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
+# ✅ UPDATED: Enhanced configure alarms endpoint to support instance names
 @app.route("/api/configure-alarms", methods=['POST'])
 def configure_alarms():
     logging.info("=== CONFIGURE ALARMS ENDPOINT CALLED ===")
@@ -693,6 +722,7 @@ def configure_alarms():
         account_id = data.get('accountId')
         region = data.get('region')
         platform = data.get('platform', 'linux')
+        instance_name = data.get('instanceName', f'Instance-{instance_id}')  # ✅ Accept instance name from frontend
         alarm_config = data.get('alarmConfig', {})
         
         if not all([instance_id, account_id, region]):
@@ -702,11 +732,14 @@ def configure_alarms():
             if not region: missing_params.append('region')
             return jsonify({'error': f'Missing required parameters: {", ".join(missing_params)}'}), 400
         
-        logging.info(f"Creating alarms for instance {instance_id} in account {account_id}")
+        # ✅ Enhanced logging with instance names
+        display_name = f"{instance_name} ({instance_id})" if instance_name != f'Instance-{instance_id}' else instance_id
+        logging.info(f"Creating alarms for {display_name} in account {account_id}")
         
         lambda_payload = {
             'action': 'create_alarms',
             'instance_id': instance_id,
+            'instance_name': instance_name,  # ✅ Pass instance name to Lambda
             'account_id': account_id,
             'region': region,
             'platform': platform,
@@ -714,7 +747,7 @@ def configure_alarms():
             'role_name': FIXED_ROLE_NAME
         }
         
-        logging.info(f"Invoking Lambda with alarm payload: {lambda_payload}")
+        logging.info(f"Invoking Lambda with alarm payload for {display_name}: {lambda_payload}")
         
         lambda_response = lambda_client.invoke(
             FunctionName=LAMBDA_FUNCTION_NAME,
@@ -725,7 +758,7 @@ def configure_alarms():
         payload_response = lambda_response['Payload'].read()
         lambda_result = json.loads(payload_response)
         
-        logging.info(f"Lambda alarm response: {lambda_result}")
+        logging.info(f"Lambda alarm response for {display_name}: {lambda_result}")
         
         status_code = lambda_result.get('statusCode', 200)
         body = json.loads(lambda_result.get('body', '{}'))
@@ -733,7 +766,9 @@ def configure_alarms():
         if status_code == 200:
             return jsonify({
                 'success': True,
-                'message': body.get('message'),
+                'message': f"Alarms configured successfully for {display_name}",
+                'instanceName': instance_name,
+                'instanceId': instance_id,
                 'alarmDetails': body.get('alarmDetails'),
                 'details': body
             })
@@ -741,13 +776,17 @@ def configure_alarms():
             return jsonify({
                 'success': False,
                 'message': body.get('message'),
+                'instanceName': instance_name,
+                'instanceId': instance_id,
                 'alarmDetails': body.get('alarmDetails'),
                 'partialSuccess': True
             }), 207
         else:
             return jsonify({
                 'success': False,
-                'error': body.get('error', 'Alarm configuration failed')
+                'error': body.get('error', 'Alarm configuration failed'),
+                'instanceName': instance_name,
+                'instanceId': instance_id
             }), status_code
             
     except Exception as e:
@@ -786,7 +825,7 @@ def converse():
         
         if has_alarm_intent:
             return jsonify({
-                "message": f"I'll help you configure CloudWatch alarms! You have {total_accounts} accounts configured. "
+                "message": f"I'll help you configure CloudWatch alarms with instance names! You have {total_accounts} accounts configured. "
                           f"First, let me show you your instances so you can select which ones need alarm configuration.",
                 "action": "trigger_discovery",
                 "intent": "alarm_configuration",
@@ -809,7 +848,7 @@ def converse():
             capabilities = [
                 "discover instances across AWS accounts",
                 "configure CloudWatch agents", 
-                "set up monitoring alarms",
+                "set up monitoring alarms with instance names",
                 "check monitoring status"
             ]
             
@@ -840,7 +879,7 @@ def health_check():
         "status": "healthy",
         "service": "L1 Agentic CloudWatch Bot",
         "timestamp": datetime.utcnow().isoformat(),
-        "version": "2.3.0",  # ✅ Production version
+        "version": "2.4.0",  # ✅ Updated version for instance name support
         "aws_region": AWS_REGION,
         "dynamodb_table": DYNAMODB_TABLE_NAME,
         "lambda_function": LAMBDA_FUNCTION_NAME,
@@ -849,6 +888,7 @@ def health_check():
             "cloudwatch_agent_deployment": True,
             "alarm_configuration": True,
             "real_time_alarm_detection": True,
+            "instance_name_support": True,  # ✅ New feature
             "multi_account_discovery": True,
             "dynamic_intent_detection": True,
             "alarm_status_detection": True
@@ -866,7 +906,7 @@ if __name__ == "__main__":
         logging.info(f"DynamoDB Table: {DYNAMODB_TABLE_NAME}")
         logging.info(f"Lambda Function: {LAMBDA_FUNCTION_NAME}")
         logging.info(f"Discovery Regions: {len(DISCOVERY_REGIONS)} regions")
-        logging.info(f"Features: CloudWatch Agent Deployment + Real-time Alarm Detection + Chat Integration")
+        logging.info(f"Features: CloudWatch Agent Deployment + Real-time Alarm Detection with Instance Names + Chat Integration")
         # ✅ Safe for local development only
         app.run(debug=True, host='127.0.0.1', port=5000)
     else:
