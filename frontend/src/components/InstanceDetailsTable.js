@@ -1,6 +1,7 @@
 // components/InstanceDetailsTable.js
 import React, { useState } from 'react';
 import AlarmConfigurationModal from './AlarmConfigurationModal';
+import InstanceTypeChangeModal from './InstanceTypeChangeModal';
 import { deployCloudWatchAgent, configureAlarms, discoverInstances } from '../Services/api';
 
 const InstanceDetailsTable = ({ 
@@ -19,9 +20,15 @@ const InstanceDetailsTable = ({
     instance: null
   });
   const [alarmLoading, setAlarmLoading] = useState(false);
-  const [refreshing, setRefreshing] = useState(false); // ✅ NEW: Refresh state
+  const [refreshing, setRefreshing] = useState(false);
 
-  // ✅ NEW: Refresh button handler - fetches real-time data
+  // *** Instance type change modal state ***
+  const [instanceTypeModal, setInstanceTypeModal] = useState({
+    show: false,
+    instance: null
+  });
+
+  // Refresh button handler - fetches real-time data
   const handleRefreshInstances = async () => {
     if (!accountId) return;
     
@@ -30,19 +37,15 @@ const InstanceDetailsTable = ({
     try {
       console.log('🔄 Refreshing instance data for account:', accountId);
       
-      // ✅ Add refresh message to chat
       if (onAddMessage) {
         onAddMessage('🔄 Refresh instance status', 'user');
       }
       
-      // ✅ Fetch fresh instance data from backend
       const response = await discoverInstances(accountId);
       
       if (response.status === 'success' && response.data.instances) {
-        // ✅ Update instances with fresh data
         setInstances(response.data.instances);
         
-        // ✅ Add success message to chat
         if (onAddMessage) {
           const summary = response.data.summary;
           const refreshMessage = `✅ **Instance data refreshed successfully!**\n\n` +
@@ -67,7 +70,6 @@ const InstanceDetailsTable = ({
     } catch (error) {
       console.error('❌ Error refreshing instances:', error);
       
-      // ✅ Add error message to chat
       if (onAddMessage) {
         setTimeout(() => {
           onAddMessage(
@@ -81,7 +83,7 @@ const InstanceDetailsTable = ({
     }
   };
 
-  // ✅ Enhanced instance status detection
+  // Enhanced instance status detection
   const getInstanceStatus = (instance) => {
     const hasAgent = instance.CloudWatchConfigured;
     const hasAlarms = instance.AlarmsConfigured;
@@ -110,7 +112,7 @@ const InstanceDetailsTable = ({
     }
   };
 
-  // Sort instances: Unconfigured first, then agent configured, then alarm configured
+  // Sort instances
   const sortedInstances = [...instances].sort((a, b) => {
     const statusA = getInstanceStatus(a);
     const statusB = getInstanceStatus(b);
@@ -135,6 +137,14 @@ const InstanceDetailsTable = ({
   // Handle alarm configuration
   const handleAlarmConfiguration = (instance) => {
     setAlarmModal({
+      show: true,
+      instance: instance
+    });
+  };
+
+  // *** Handle instance type change ***
+  const handleInstanceTypeChange = (instance) => {
+    setInstanceTypeModal({
       show: true,
       instance: instance
     });
@@ -190,7 +200,6 @@ const InstanceDetailsTable = ({
           }, 500);
         }
         
-        // ✅ Auto-refresh after successful alarm configuration
         setTimeout(() => {
           handleRefreshInstances();
         }, 2000);
@@ -223,6 +232,30 @@ const InstanceDetailsTable = ({
     } finally {
       setAlarmLoading(false);
     }
+  };
+
+  // *** Handle successful instance type change ***
+  const handleInstanceTypeChangeSuccess = () => {
+    setInstanceTypeModal({ show: false, instance: null });
+    
+    if (onAddMessage) {
+      const { instance } = instanceTypeModal;
+      const displayName = instance.InstanceName || instance.InstanceId;
+      
+      const successMessage = `✅ **Instance type change completed successfully!**\n\n` +
+        `🔧 **Instance:** ${displayName}\n` +
+        `📊 **Account:** ${accountId}\n` +
+        `⏱️ **Completed at:** ${new Date().toLocaleTimeString()}\n\n` +
+        `🔄 **Refreshing instance data to show updated type...**`;
+      
+      setTimeout(() => {
+        onAddMessage(successMessage, 'bot');
+      }, 500);
+    }
+    
+    setTimeout(() => {
+      handleRefreshInstances();
+    }, 2000);
   };
 
   // Format success message for chat
@@ -267,11 +300,10 @@ const InstanceDetailsTable = ({
   return (
     <>
       <div className="instance-details-card">
-        {/* ✅ NEW: Header with Refresh Button */}
+        {/* Header with Refresh Button */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <h3 style={{ margin: 0 }}>Details for Account [{accountId}]. Select an instance to configure:</h3>
           
-          {/* ✅ NEW: Refresh Button */}
           <button
             className="btn btn-primary"
             onClick={handleRefreshInstances}
@@ -312,8 +344,11 @@ const InstanceDetailsTable = ({
                 <th>STATUS</th>
                 <th>REGION</th>
                 <th>PLATFORM</th>
+                <th>INSTANCE TYPE</th>
                 <th>CW AGENT CONFIG</th>
-                <th>ACTIONS</th>
+                <th>INSTANCE TYPE CHANGE</th>  {/* *** NEW COLUMN *** */}
+                <th>ALARM CONFIGURATION</th>   {/* *** NEW COLUMN *** */}
+                <th>ALARM ACTIVE</th>          {/* *** NEW COLUMN *** */}
               </tr>
             </thead>
             <tbody>
@@ -358,76 +393,102 @@ const InstanceDetailsTable = ({
                     </td>
                     
                     <td>
+                      <span className="instance-type-badge" style={{
+                        backgroundColor: '#E0E7FF',
+                        color: '#3B82F6',
+                        padding: '4px 8px',
+                        borderRadius: '4px',
+                        fontSize: '12px',
+                        fontWeight: '600'
+                      }}>
+                        {instance.InstanceType}
+                      </span>
+                    </td>
+                    
+                    <td>
                       <span className={statusInfo.className}>
                         {statusInfo.text}
                       </span>
                     </td>
                     
-                    <td className="actions-column">
-                      <div className="action-buttons">
-                        
-                        {statusInfo.status === 'agent_configured' && instance.State === 'running' && (
-                          <button
-                            className="btn btn-warning btn-sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleAlarmConfiguration(instance);
-                            }}
-                            disabled={alarmLoading}
-                            style={{
-                              backgroundColor: '#F59E0B',
-                              borderColor: '#F59E0B',
-                              color: 'white',
-                              padding: '6px 12px',
-                              borderRadius: '6px',
-                              fontSize: '12px',
-                              fontWeight: '500',
-                              cursor: alarmLoading ? 'not-allowed' : 'pointer',
-                              opacity: alarmLoading ? 0.7 : 1
-                            }}
-                          >
-                            {alarmLoading ? '⏳ Configuring...' : '⚠️ Configure Alarms'}
-                          </button>
-                        )}
-                        
-                        {statusInfo.status === 'alarm_configured' && (
-                          <span className="configured-message" style={{
-                            color: '#7C3AED',
-                            fontSize: '12px',
-                            fontWeight: '600',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px'
-                          }}>
-                            🎯 Alarms Active
-                          </span>
-                        )}
-                        
-                        {statusInfo.actionNeeded && instance.State === 'running' && (
-                          <span className="instruction-text" style={{
-                            color: '#8B5CF6',
+                    {/* *** NEW COLUMN: Instance Type Change *** */}
+                    <td style={{ textAlign: 'center' }}>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleInstanceTypeChange(instance);
+                        }}
+                        disabled={instance.State === 'terminated'}
+                        style={{
+                          backgroundColor: '#F59E0B',
+                          borderColor: '#F59E0B',
+                          color: 'white',
+                          padding: '6px 12px',
+                          borderRadius: '6px',
+                          fontSize: '11px',
+                          fontWeight: '500',
+                          cursor: instance.State === 'terminated' ? 'not-allowed' : 'pointer',
+                          opacity: instance.State === 'terminated' ? 0.5 : 1,
+                          border: 'none',
+                          whiteSpace: 'nowrap'
+                        }}
+                        title={instance.State === 'terminated' ? 'Cannot change type of terminated instance' : 'Change instance type (requires restart)'}
+                      >
+                        🔧 Change Type
+                      </button>
+                    </td>
+                    
+                    {/* *** NEW COLUMN: Alarm Configuration *** */}
+                    <td style={{ textAlign: 'center' }}>
+                      {statusInfo.status === 'agent_configured' && instance.State === 'running' ? (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleAlarmConfiguration(instance);
+                          }}
+                          disabled={alarmLoading}
+                          style={{
+                            backgroundColor: '#F59E0B',
+                            borderColor: '#F59E0B',
+                            color: 'white',
+                            padding: '6px 12px',
+                            borderRadius: '6px',
                             fontSize: '11px',
                             fontWeight: '500',
-                            fontStyle: 'italic',
-                            textAlign: 'center'
-                          }}>
-                       
-                          </span>
-                        )}
-                        
-                        {instance.State !== 'running' && (
-                          <span className="status-message" style={{
-                            color: '#6B7280',
-                            fontSize: '11px',
-                            fontStyle: 'italic',
-                            textAlign: 'center'
-                          }}>
-                            {instance.State === 'stopped' ? '⏹️ Instance stopped' : `⏸️ Instance ${instance.State}`}
-                          </span>
-                        )}
-                        
-                      </div>
+                            cursor: alarmLoading ? 'not-allowed' : 'pointer',
+                            opacity: alarmLoading ? 0.7 : 1,
+                            border: 'none',
+                            whiteSpace: 'nowrap'
+                          }}
+                        >
+                          {alarmLoading ? '⏳ Configuring...' : '⚠️ Configure Alarms'}
+                        </button>
+                      ) : (
+                        <span style={{ color: '#9CA3AF', fontSize: '11px' }}>
+                          {statusInfo.status === 'alarm_configured' ? '✅ Configured' : 
+                           statusInfo.status === 'not_configured' ? 'Agent Required' : 
+                           instance.State !== 'running' ? 'Instance Stopped' : 'Not Available'}
+                        </span>
+                      )}
                     </td>
+                    
+                    {/* *** NEW COLUMN: Alarm Active *** */}
+                    <td style={{ textAlign: 'center' }}>
+                      {statusInfo.status === 'alarm_configured' ? (
+                        <span style={{
+                          color: '#7C3AED',
+                          fontSize: '12px',
+                          fontWeight: '600'
+                        }}>
+                          🎯 Alarms Active
+                        </span>
+                      ) : (
+                        <span style={{ color: '#9CA3AF', fontSize: '11px' }}>
+                          Not Active
+                        </span>
+                      )}
+                    </td>
+                    
                   </tr>
                 );
               })}
@@ -448,10 +509,13 @@ const InstanceDetailsTable = ({
                 <strong style={{ color: '#8B5CF6' }}>💡 Agent Installation:</strong> Click on unconfigured instance rows to install CloudWatch agent
               </div>
               <div>
-                <strong style={{ color: '#F59E0B' }}>⚠️ Alarm Configuration:</strong> Use "Configure Alarms" button for configured instances
+                <strong style={{ color: '#F59E0B' }}>🔧 Instance Type Change:</strong> Use "Change Type" column to resize instances (causes downtime)
               </div>
               <div>
-                <strong style={{ color: '#7C3AED' }}>🎯 Alarms Active:</strong> Instances with both agent and alarms configured
+                <strong style={{ color: '#F59E0B' }}>⚠️ Alarm Configuration:</strong> Use "Configure Alarms" column for configured instances
+              </div>
+              <div>
+                <strong style={{ color: '#7C3AED' }}>🎯 Alarms Active:</strong> Shows instances with both agent and alarms configured
               </div>
               <div>
                 <strong style={{ color: '#814fff' }}>🔄 Refresh:</strong> Use refresh button to get real-time instance status
@@ -516,11 +580,21 @@ const InstanceDetailsTable = ({
         )}
       </div>
       
+      {/* Alarm Configuration Modal */}
       <AlarmConfigurationModal
         show={alarmModal.show}
         instance={alarmModal.instance}
         onConfirm={handleConfirmAlarmConfig}
         onCancel={() => setAlarmModal({ show: false, instance: null })}
+      />
+
+      {/* Instance Type Change Modal */}
+      <InstanceTypeChangeModal
+        show={instanceTypeModal.show}
+        onHide={() => setInstanceTypeModal({ show: false, instance: null })}
+        instance={instanceTypeModal.instance}
+        accountId={accountId}
+        onSuccess={handleInstanceTypeChangeSuccess}
       />
     </>
   );
