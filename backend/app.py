@@ -197,6 +197,60 @@ def check_alarm_intent(user_input: str, available_actions: list = None) -> bool:
         logging.error(f"Error in alarm intent detection: {e}")
         return False
 
+# *** ADDED: Instance type change intent detection ***
+def check_instance_type_change_intent(user_input: str, available_actions: list = None) -> bool:
+    """Dynamic instance type change intent detection"""
+    try:
+        if not available_actions:
+            available_actions = ["change instance type", "resize instance", "upgrade instance", "modify instance type"]
+        
+        action_list = ", ".join(available_actions)
+        
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "text": f"User input: '{user_input}'. Available actions: {action_list}. "
+                               f"Does user want to change/resize/upgrade instance type? Reply YES or NO only."
+                    }
+                ],
+            }
+        ]
+        
+        payload = {
+            "messages": messages,
+            "inferenceConfig": {
+                "max_new_tokens": 5,
+                "temperature": 0,
+                "top_p": 0.1,
+            },
+        }
+        
+        response = bedrock_client.invoke_model(
+            modelId=BEDROCK_MODEL_ID,
+            body=json.dumps(payload),
+            contentType="application/json",
+            accept="application/json",
+        )
+        
+        resp_stream = response.get("body")
+        if hasattr(resp_stream, "read"):
+            resp_str = resp_stream.read().decode()
+        else:
+            resp_str = str(resp_stream)
+            
+        resp_json = json.loads(resp_str)
+        content = resp_json.get("output", {}).get("message", {}).get("content", [])
+        intent_text = content[0].get("text", "").strip().upper() if content else ""
+        
+        logging.info(f"Instance type change intent classification: '{user_input}' -> {intent_text}")
+        return any(word in intent_text for word in ["YES", "TRUE", "CHANGE", "RESIZE", "UPGRADE"])
+        
+    except Exception as e:
+        logging.error(f"Error in instance type change intent detection: {e}")
+        return False
+
 def get_account_groups():
     logging.info("=== GETTING ACCOUNT GROUPS FROM DYNAMODB ===")
     try:
@@ -554,8 +608,13 @@ def home():
     return jsonify({
         "message": "L1 Agentic CloudWatch Bot API is running.", 
         "region": AWS_REGION,
-        "version": "2.4.0",  # ✅ Updated version for instance name support
-        "features": ["CloudWatch Agent Deployment", "Real-time Alarm Detection with Instance Names", "Multi-Account Discovery"],
+        "version": "2.5.0",  # *** UPDATED: Version for instance type change support ***
+        "features": [
+            "CloudWatch Agent Deployment", 
+            "Real-time Alarm Detection with Instance Names", 
+            "Instance Type Changes with Downtime Management",  # *** ADDED: New feature ***
+            "Multi-Account Discovery"
+        ],
         "environment": os.getenv('FLASK_ENV', 'production')
     })
 
@@ -794,6 +853,81 @@ def configure_alarms():
         logging.error(f"Full traceback: {traceback.format_exc()}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
+# *** ADDED: Instance type change endpoint ***
+@app.route("/api/change-instance-type", methods=['POST'])
+def change_instance_type():
+    logging.info("=== CHANGE INSTANCE TYPE ENDPOINT CALLED ===")
+    try:
+        data = request.get_json()
+        logging.info(f"Instance type change request: {data}")
+        
+        instance_id = data.get('instanceId')
+        account_id = data.get('accountId')
+        region = data.get('region')
+        new_instance_type = data.get('newInstanceType')
+        instance_name = data.get('instanceName', f'Instance-{instance_id}')
+        
+        # Validate required parameters
+        if not all([instance_id, account_id, region, new_instance_type]):
+            missing_params = []
+            if not instance_id: missing_params.append('instanceId')
+            if not account_id: missing_params.append('accountId')
+            if not region: missing_params.append('region')
+            if not new_instance_type: missing_params.append('newInstanceType')
+            return jsonify({'error': f'Missing required parameters: {", ".join(missing_params)}'}), 400
+        
+        # Enhanced logging with instance names
+        display_name = f"{instance_name} ({instance_id})" if instance_name != f'Instance-{instance_id}' else instance_id
+        logging.info(f"Changing instance type for {display_name} to {new_instance_type} in account {account_id}")
+        
+        lambda_payload = {
+            'action': 'change_instance_type',
+            'instance_id': instance_id,
+            'account_id': account_id,
+            'region': region,
+            'new_instance_type': new_instance_type,
+            'role_name': FIXED_ROLE_NAME
+        }
+        
+        logging.info(f"Invoking Lambda with instance type change payload for {display_name}: {lambda_payload}")
+        
+        lambda_response = lambda_client.invoke(
+            FunctionName=LAMBDA_FUNCTION_NAME,
+            InvocationType='RequestResponse',
+            Payload=json.dumps(lambda_payload)
+        )
+        
+        payload_response = lambda_response['Payload'].read()
+        lambda_result = json.loads(payload_response)
+        
+        logging.info(f"Lambda instance type change response for {display_name}: {lambda_result}")
+        
+        status_code = lambda_result.get('statusCode', 200)
+        body = json.loads(lambda_result.get('body', '{}'))
+        
+        if status_code == 200:
+            return jsonify({
+                'success': True,
+                'message': f"Instance type changed successfully for {display_name}",
+                'instanceName': instance_name,
+                'instanceId': instance_id,
+                'oldInstanceType': body.get('instanceDetails', {}).get('oldInstanceType'),
+                'newInstanceType': new_instance_type,
+                'details': body
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': body.get('error', 'Instance type change failed'),
+                'instanceName': instance_name,
+                'instanceId': instance_id
+            }), status_code
+            
+    except Exception as e:
+        logging.error(f"Error changing instance type: {e}")
+        logging.error(f"Full traceback: {traceback.format_exc()}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route("/api/converse", methods=["POST"])
 def converse():
     logging.info("=== CONVERSE ENDPOINT CALLED ===")
@@ -822,8 +956,23 @@ def converse():
         # Check for different intents
         has_cloudwatch_intent = check_cloudwatch_intent(user_input)
         has_alarm_intent = check_alarm_intent(user_input)
+        has_instance_type_change_intent = check_instance_type_change_intent(user_input)  # *** ADDED: New intent check ***
         
-        if has_alarm_intent:
+        # *** ADDED: Instance type change intent handling ***
+        if has_instance_type_change_intent:
+            return jsonify({
+                "message": f"I'll help you change instance types safely! You have {total_accounts} accounts configured. "
+                          f"First, let me show you your instances so you can select which ones need type changes. "
+                          f"⚠️ Note: This will cause 2-5 minutes downtime as instances must be stopped and restarted.",
+                "action": "trigger_discovery",
+                "intent": "instance_type_change",
+                "context": {
+                    "availableAccounts": total_accounts,
+                    "nextStep": "instance_type_selection",
+                    "warning": "Instance type changes require stop/start cycle"
+                }
+            })
+        elif has_alarm_intent:
             return jsonify({
                 "message": f"I'll help you configure CloudWatch alarms with instance names! You have {total_accounts} accounts configured. "
                           f"First, let me show you your instances so you can select which ones need alarm configuration.",
@@ -849,18 +998,20 @@ def converse():
                 "discover instances across AWS accounts",
                 "configure CloudWatch agents", 
                 "set up monitoring alarms with instance names",
+                "change instance types safely",  # *** ADDED: New capability ***
                 "check monitoring status"
             ]
             
             return jsonify({
                 "message": f"Hi! I can help you with: {', '.join(capabilities)}. "
                           f"You have {total_accounts} accounts configured. "
-                          f"Try: 'configure cloudwatch' or 'set up alarms'",
+                          f"Try: 'configure cloudwatch', 'set up alarms', or 'change instance type'",  # *** UPDATED: Added example ***
                 "capabilities": capabilities,
                 "accountCount": total_accounts,
                 "suggestions": [
                     "configure cloudwatch agent",
                     "set up monitoring alarms", 
+                    "change instance type",  # *** ADDED: New suggestion ***
                     "show my instances"
                 ]
             })
@@ -879,7 +1030,7 @@ def health_check():
         "status": "healthy",
         "service": "L1 Agentic CloudWatch Bot",
         "timestamp": datetime.utcnow().isoformat(),
-        "version": "2.4.0",  # ✅ Updated version for instance name support
+        "version": "2.5.0",  # *** UPDATED: Version for instance type change support ***
         "aws_region": AWS_REGION,
         "dynamodb_table": DYNAMODB_TABLE_NAME,
         "lambda_function": LAMBDA_FUNCTION_NAME,
@@ -888,7 +1039,8 @@ def health_check():
             "cloudwatch_agent_deployment": True,
             "alarm_configuration": True,
             "real_time_alarm_detection": True,
-            "instance_name_support": True,  # ✅ New feature
+            "instance_name_support": True,
+            "instance_type_change": True,  # *** ADDED: New feature flag ***
             "multi_account_discovery": True,
             "dynamic_intent_detection": True,
             "alarm_status_detection": True
@@ -896,7 +1048,7 @@ def health_check():
         "discovery_regions": len(DISCOVERY_REGIONS)
     })
 
-# ✅ PRODUCTION-READY STARTUP (CRITICAL FIX)
+
 if __name__ == "__main__":
     flask_env = os.getenv('FLASK_ENV', 'production')
     
@@ -906,7 +1058,7 @@ if __name__ == "__main__":
         logging.info(f"DynamoDB Table: {DYNAMODB_TABLE_NAME}")
         logging.info(f"Lambda Function: {LAMBDA_FUNCTION_NAME}")
         logging.info(f"Discovery Regions: {len(DISCOVERY_REGIONS)} regions")
-        logging.info(f"Features: CloudWatch Agent Deployment + Real-time Alarm Detection with Instance Names + Chat Integration")
+        logging.info(f"Features: CloudWatch Agent Deployment + Real-time Alarm Detection with Instance Names + Instance Type Changes + Chat Integration")
         # ✅ Safe for local development only
         app.run(debug=True, host='127.0.0.1', port=5000)
     else:
@@ -922,3 +1074,4 @@ if __name__ == "__main__":
         print("1. Use: gunicorn --bind 0.0.0.0:5000 wsgi:app")
         print("2. Or deploy with systemd service")
         print("3. Never use app.run() in production!")
+
