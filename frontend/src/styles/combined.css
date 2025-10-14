@@ -1076,3 +1076,62 @@
     padding: 16px !important;
   }
 }
+/* ===================== FORCE CHAT ALIGNMENT - OVERRIDE ALL ===================== */
+
+/* ✅ FORCE Bot messages to LEFT with highest specificity */
+.mojobot-messages .mojobot-bubble.mojobot-bot {
+  align-self: flex-start !important;
+  margin-left: 0 !important;
+  margin-right: auto !important;
+  text-align: left !important;
+  float: none !important;
+  clear: both !important;
+}
+
+/* ✅ FORCE User messages to RIGHT with highest specificity */
+.mojobot-messages .mojobot-bubble.mojobot-user {
+  align-self: flex-end !important;
+  margin-left: auto !important;
+  margin-right: 0 !important;
+  text-align: right !important;
+  float: none !important;
+  clear: both !important;
+}
+
+/* ✅ FORCE message container to be flex */
+.mojobot-messages {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+}
+
+/* ✅ Alternative approach - using flexbox on individual messages */
+.mojobot-bot {
+  display: flex !important;
+  justify-self: flex-start !important;
+  width: fit-content !important;
+  max-width: 80% !important;
+}
+
+.mojobot-user {
+  display: flex !important;
+  justify-self: flex-end !important;
+  width: fit-content !important;
+  max-width: 80% !important;
+  margin-left: auto !important;
+}
+
+/* ✅ Nuclear option - using CSS Grid */
+.mojobot-messages > .mojobot-bot {
+  justify-self: start !important;
+}
+
+.mojobot-messages > .mojobot-user {
+  justify-self: end !important;
+}
+
+/* ✅ Ensure no conflicting styles */
+.mojobot-bubble {
+  position: relative !important;
+  display: block !important;
+}
