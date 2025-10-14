@@ -601,3 +601,4 @@ const InstanceDetailsTable = ({
 };
 
 export default InstanceDetailsTable;
+         
