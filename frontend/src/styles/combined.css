@@ -1,4 +1,4 @@
-/* combined.css - CLEANED UP VERSION - All Issues Fixed */
+/* combined.css - COMPLETE FIXED VERSION - Chat Bubbles Aligned Correctly */
 
 /* ===================== CORE VARIABLES ===================== */
 :root {
@@ -112,7 +112,7 @@
   user-select: none;
 }
 
-/* ===================== MESSAGES AREA ===================== */
+/* ===================== MESSAGES AREA - FIXED ALIGNMENT ===================== */
 
 .mojobot-messages {
   flex: 1;
@@ -143,6 +143,7 @@
   background: #a8a8a8;
 }
 
+/* ✅ FIXED: Message Bubbles with Proper Alignment */
 .mojobot-bubble {
   max-width: 80%;
   padding: clamp(12px, 2vw, 20px) clamp(16px, 2.5vw, 26px);
@@ -152,22 +153,28 @@
   word-break: break-word;
   display: inline-block;
   box-shadow: 0 2px 10px rgba(80,56,239,0.08);
+  margin-bottom: 12px;
 }
 
+/* ✅ USER messages - RIGHT side (purple bubbles) */
 .mojobot-user {
   background: linear-gradient(90deg, #6d4aff 0%, var(--secondary-purple) 100%);
   color: #fff;
-  align-self: flex-end;
+  align-self: flex-end !important;        /* ✅ Force RIGHT alignment */
   border-bottom-right-radius: 6px;
-  margin-left: auto;
+  margin-left: auto !important;           /* ✅ Force push to right */
+  margin-right: 0 !important;
 }
 
+/* ✅ BOT messages - LEFT side (white bubbles) */
 .mojobot-bot {
   background: #fff;
   color: #363953;
-  align-self: flex-start;
-  border-bottom-left-radius: 6px;
-  margin-right: auto;
+  align-self: flex-start !important;      /* ✅ Force LEFT alignment */
+  border-bottom-left-radius: 6px; 
+  margin-right: auto !important;          /* ✅ Force push to left */
+  margin-left: 0 !important;
+  border: 1px solid #e2e8f0;
 }
 
 /* ===================== INPUT AREA ===================== */
@@ -696,7 +703,6 @@
   gap: 12px;
 }
 
-/* ✅ FIXED: Added missing modal-close styles */
 .modal-close {
   background: none;
   border: none;
@@ -741,8 +747,6 @@
   transition: all 0.2s ease;
   height: auto;
 }
-
-/* ✅ CONSOLIDATED: Modal Specific Styles */
 
 /* Instance Type Change Modal */
 .instance-type-modal {
@@ -1071,5 +1075,4 @@
   .modal-footer {
     padding: 16px !important;
   }
-} 
- 
+}
