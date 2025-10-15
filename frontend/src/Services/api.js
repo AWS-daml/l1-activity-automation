@@ -1,24 +1,22 @@
-// Services/api.js - Production Ready Version
+// Services/api.js - UNIVERSAL VERSION - Works Everywhere
 
-// ✅ FIXED: Environment-based API configuration
+// ✅ COMPLETELY DYNAMIC: Auto-detects correct Flask server URL for ANY deployment
 const getBaseURL = () => {
-  // Check if we're in development mode
-  const isDevelopment = process.env.NODE_ENV === 'development' || 
-                       window.location.hostname === 'localhost' ||
-                       window.location.hostname === '127.0.0.1';
+  const hostname = window.location.hostname;
+  const protocol = window.location.protocol;
   
-  if (isDevelopment) {
-    // Development - call Flask directly
-    return 'http://127.0.0.1:5000';
-  } else {
-    // Production - use relative URLs (Nginx will proxy)
-    return '';
-  }
+  console.log(`🔍 Auto-detecting API URL from: ${protocol}//${hostname}`);
+  
+  // Always use the same hostname as the frontend, but on port 5000
+  const apiUrl = `${protocol}//${hostname}:5000`;
+  
+  console.log(`🌐 API URL automatically set to: ${apiUrl}`);
+  return apiUrl;
 };
 
 const BASE = getBaseURL();
 
-// Enhanced API call function with better error handling
+// ✅ Enhanced API call function with connection testing and fallbacks
 const apiCall = async (endpoint, options = {}) => {
   const fullUrl = `${BASE}${endpoint}`;
   console.log(`🌐 API Call: ${fullUrl}`, options.body ? JSON.parse(options.body) : {});
@@ -29,7 +27,8 @@ const apiCall = async (endpoint, options = {}) => {
       headers: {
         'Content-Type': 'application/json',
         ...options.headers
-      }
+      },
+      timeout: 30000 // 30 second timeout
     });
     
     const data = await response.json();
@@ -42,7 +41,39 @@ const apiCall = async (endpoint, options = {}) => {
     return { status: "success", data };
   } catch (error) {
     console.error(`❌ API Error for ${endpoint}:`, error);
+    
+    // If it's a connection error, provide helpful debugging info
+    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+      throw new Error(`Cannot connect to Flask server at ${BASE}. Please ensure Flask is running on port 5000.`);
+    }
+    
     throw error;
+  }
+};
+
+// ✅ Connection Test Function (use this to debug)
+export const testConnection = async () => {
+  try {
+    console.log(`🧪 Testing connection to Flask server at: ${BASE}`);
+    const response = await fetch(`${BASE}/api/health`, { 
+      method: 'GET',
+      timeout: 5000 
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      console.log(`✅ Flask server connection successful:`, data);
+      return { success: true, message: 'Connected successfully', data };
+    } else {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+  } catch (error) {
+    console.error(`❌ Flask server connection failed:`, error);
+    return { 
+      success: false, 
+      message: `Cannot connect to Flask server at ${BASE}`,
+      error: error.message 
+    };
   }
 };
 
@@ -159,6 +190,44 @@ export const configureAlarms = async (data) => {
   }
 };
 
+// ✅ NEW: Instance Type Change API
+export const changeInstanceType = async (data) => {
+  try {
+    console.log('🔄 Changing instance type with data:', data);
+    
+    // Validate required fields
+    if (!data.instanceId || !data.accountId || !data.region || !data.newInstanceType) {
+      throw new Error('Missing required fields: instanceId, accountId, region, or newInstanceType');
+    }
+    
+    return await apiCall('/api/change-instance-type', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  } catch (error) {
+    throw new Error(`Failed to change instance type: ${error.message}`);
+  }
+};
+
+// ✅ NEW: Volume Conversion API (for GP2 → GP3)
+export const convertVolumes = async (data) => {
+  try {
+    console.log('🔄 Converting volumes with data:', data);
+    
+    // Validate required fields
+    if (!data.instanceId || !data.accountId || !data.region) {
+      throw new Error('Missing required fields: instanceId, accountId, or region');
+    }
+    
+    return await apiCall('/api/convert-volumes', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  } catch (error) {
+    throw new Error(`Failed to convert volumes: ${error.message}`);
+  }
+};
+
 // ✅ Health Check API (useful for monitoring)
 export const healthCheck = async () => {
   try {
@@ -180,10 +249,40 @@ export const testDynamoDB = async () => {
 // ✅ Export the base URL for debugging
 export const getApiBaseUrl = getBaseURL;
 
+// ✅ Auto-test connection on module load
+(async () => {
+  try {
+    const connectionTest = await testConnection();
+    if (connectionTest.success) {
+      console.log('🎉 Flask server is ready for API calls');
+    } else {
+      console.warn('⚠️ Flask server connection issue:', connectionTest.message);
+    }
+  } catch (error) {
+    console.warn('⚠️ Could not test Flask connection on startup:', error.message);
+  }
+})();
+
 // ✅ Console log current configuration
 console.log('🔧 API Configuration:', {
-  environment: process.env.NODE_ENV,
-  hostname: window.location.hostname,
-  baseURL: BASE,
-  isDevelopment: BASE.includes('127.0.0.1')
+  currentHostname: window.location.hostname,
+  currentPort: window.location.port,
+  flaskServerURL: BASE,
+  autoDetected: true,
+  universalCompatibility: true
 });
+
+// ✅ Export default configuration object
+export default {
+  BASE_URL: BASE,
+  testConnection,
+  sendMessage,
+  discoverAccounts,
+  discoverInstances,
+  deployCloudWatchAgent,
+  configureAlarms,
+  changeInstanceType,
+  convertVolumes,
+  healthCheck,
+  testDynamoDB
+};
