@@ -1066,44 +1066,8 @@ if __name__ == "__main__":
     print(f"🔌 Port: {port}")
     print("="*50)
     
-    # ❌ COMMENT OUT ALL app.run() CALLS FOR PRODUCTION
-    # if flask_env == 'development':
-    #     app.run(debug=True, host='0.0.0.0', port=port, threaded=True)
-    # else:
-    #     try:
-    #         app.run(debug=False, host='0.0.0.0', port=port, threaded=True)
-    #     except Exception as e:
-    #         print(f"Failed to start server: {e}")
-    
-    # ✅ INSTEAD, JUST PRINT INSTRUCTIONS
+    # ✅ PRODUCTION INSTRUCTIONS ONLY
     print("✅ To run in production:")
     print("1. Use: gunicorn --bind 0.0.0.0:5000 wsgi:app")
     print("2. Or deploy with systemd service")
     print("3. Never use app.run() in production!")
-
-        
-        # ✅ FIXED: Listen on all interfaces for network access
-        app.run(
-            debug=True, 
-            host='0.0.0.0',  # ✅ CHANGED: From 127.0.0.1 to 0.0.0.0
-            port=port,
-            threaded=True
-        )
-    else:
-        print("🚀 PRODUCTION MODE")
-        print("⚠️  For production, use: gunicorn --bind 0.0.0.0:5000 wsgi:app")
-        print("⚠️  Development server is NOT suitable for production!")
-        
-        # For immediate testing in production mode
-        try:
-            app.run(
-                debug=False, 
-                host='0.0.0.0',  # ✅ FIXED: Network accessible
-                port=port,
-                threaded=True
-            )
-        except Exception as e:
-            print(f"❌ Failed to start server: {e}")
-            print("💡 Try a different port:")
-            print(f"   PORT=5001 python app.py")
-            sys.exit(1)
