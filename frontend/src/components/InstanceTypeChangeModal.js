@@ -1,6 +1,6 @@
 // components/InstanceTypeChangeModal.js
 import React, { useState } from 'react';
-import { changeInstanceType } from '../services/api'; // ✅ SECURE API IMPORT
+import { changeInstanceType } from '../Services/api'; // ✅ SECURE API IMPORT
 
 const InstanceTypeChangeModal = ({ show, onHide, instance, accountId, onSuccess }) => {
   const [newInstanceType, setNewInstanceType] = useState('');
