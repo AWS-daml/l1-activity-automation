@@ -1,6 +1,6 @@
-
 // components/InstanceTypeChangeModal.js
 import React, { useState } from 'react';
+import { changeInstanceType } from '../services/api'; // ✅ SECURE API IMPORT
 
 const InstanceTypeChangeModal = ({ show, onHide, instance, accountId, onSuccess }) => {
   const [newInstanceType, setNewInstanceType] = useState('');
@@ -30,11 +30,12 @@ const InstanceTypeChangeModal = ({ show, onHide, instance, accountId, onSuccess 
     setShowConfirmation(true);
   };
 
+  // ✅ COMPLETELY FIXED - SECURE VERSION
   const executeInstanceTypeChange = async () => {
     setIsLoading(true);
     setError('');
 
-    console.log('🔧 === INSTANCE TYPE CHANGE START ===');
+    console.log('🔧 === SECURE INSTANCE TYPE CHANGE START ===');
     console.log('🔧 Instance:', instance);
     console.log('🔧 Account ID:', accountId);
     console.log('🔧 New Type:', newInstanceType);
@@ -50,50 +51,34 @@ const InstanceTypeChangeModal = ({ show, onHide, instance, accountId, onSuccess 
     console.log('🔧 Request Data:', requestData);
 
     try {
-      console.log('🔧 Making fetch request to Flask...');
+      console.log('🔧 Using SECURE Nginx proxy via api.js...');
       
-      // ✅ FIXED: Use absolute URL
-      const response = await fetch('http://127.0.0.1:5000/api/change-instance-type', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestData)
-      });
+      // ✅ FIXED: Use secure api.js function (goes through Nginx proxy)
+      const result = await changeInstanceType(requestData);
 
-      console.log('🔧 Response status:', response.status);
-      console.log('🔧 Response ok:', response.ok);
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const result = await response.json();
-      console.log('🔧 Response data:', result);
-
-      if (result.success) {
-        console.log('🔧 SUCCESS! Instance type changed successfully');
+      console.log('🔧 SUCCESS! Secure instance type change completed:', result);
+      
+      // Handle the response properly
+      if (result.status === "success" && result.data?.success) {
+        console.log('🔧 Instance type changed successfully via secure proxy');
         onSuccess && onSuccess();
+        // Reset modal
+        setShowConfirmation(false);
+        resetModal();
+        onHide();
       } else {
-        console.log('🔧 API returned error:', result.error);
-        setError(result.error || 'Failed to change instance type');
+        console.log('🔧 API returned error:', result.data?.error);
+        setError(result.data?.error || 'Failed to change instance type');
         setShowConfirmation(false);
       }
-    } catch (err) {
-      console.error('🔧 FETCH ERROR:', err);
-      console.error('🔧 Error details:', err.message);
       
-      if (err.message.includes('Failed to fetch')) {
-        setError('Cannot connect to server. Please ensure Flask is running on port 5000.');
-      } else if (err.message.includes('NetworkError')) {
-        setError('Network error. Please check your Flask server connection.');
-      } else {
-        setError(`Connection error: ${err.message}`);
-      }
+    } catch (error) {
+      console.error('🔧 Secure instance type change failed:', error);
+      setError(error.message || 'Failed to change instance type');
       setShowConfirmation(false);
     } finally {
       setIsLoading(false);
-      console.log('🔧 === INSTANCE TYPE CHANGE END ===');
+      console.log('🔧 === SECURE INSTANCE TYPE CHANGE END ===');
     }
   };
 
@@ -150,7 +135,7 @@ const InstanceTypeChangeModal = ({ show, onHide, instance, accountId, onSuccess 
                 <div className="warning-section">
                   <h6>⚠️ Important:</h6>
                   <div className="warning-text">
-                    • Instance will be <strong>stopped</strong> and <strong>restarted</strong><br/>
+                    • Instance will be <strong>stopped</strong> and <strong>started</strong><br/>
                     • Downtime: <strong>2-5 minutes</strong><br/>
                     • Public IP may change (unless Elastic IP)<br/>
                     • SSH sessions will be disconnected
@@ -221,7 +206,7 @@ const InstanceTypeChangeModal = ({ show, onHide, instance, accountId, onSuccess 
             <div className="modal-body">
               <div className="final-warning">
                 <strong>⚠️ FINAL WARNING</strong><br/>
-                This action will <strong>STOP</strong> and <strong>RESTART</strong> the instance.<br/>
+                This action will <strong>STOP</strong> and <strong>START</strong> the instance.<br/>
                 <strong>Service will be interrupted for 2-5 minutes.</strong>
               </div>
 
@@ -260,14 +245,15 @@ const InstanceTypeChangeModal = ({ show, onHide, instance, accountId, onSuccess 
         <div className="modal-overlay">
           <div className="modal-content progress-modal">
             <div className="progress-spinner"></div>
-            <h5>Processing Instance Type Change...</h5>
+            <h5>🔒 Securely Processing Instance Type Change...</h5>
             <div className="progress-steps">
               <strong>Step 1:</strong> Stopping instance<br/>
               <strong>Step 2:</strong> Changing instance type<br/>
               <strong>Step 3:</strong> Starting instance
             </div>
             <p className="progress-warning">
-              <strong>Please wait... This takes 2-5 minutes</strong>
+              <strong>Please wait... This takes 2-5 minutes</strong><br/>
+              <small>Using secure Nginx proxy connection</small>
             </p>
             <div className="progress-bar">
               <div className="progress-fill"></div>
