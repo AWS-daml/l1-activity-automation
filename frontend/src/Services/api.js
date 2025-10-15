@@ -1,19 +1,18 @@
-// Services/api.js - SECURE EC2 VERSION - Works with Restricted Security Groups
+// Services/api.js - WORKING EC2 VERSION - Fixed for Real Deployment
 
-// ✅ SECURE EC2 DEPLOYMENT: Uses localhost for internal API calls
+// ✅ WORKING: Use EC2 public IP for API calls (browser-compatible)
 const getBaseURL = () => {
   const hostname = window.location.hostname;
   const protocol = window.location.protocol;
   
   console.log(`🔍 User accessing React from: ${protocol}//${hostname}`);
   
-  // ✅ SECURITY OPTIMIZED: Always use localhost for Flask API
-  // This works because React and Flask run on the same EC2 server
-  // Flask port 5000 is protected by Security Group (excellent security!)
-  const apiUrl = `${protocol}//localhost:5000`;
+  // ✅ FIX: Use the same hostname as the React app for API calls
+  // This ensures API calls go to the same server where React is hosted
+  const apiUrl = `${protocol}//${hostname}:5000`;
   
-  console.log(`🔒 API calls will use: ${apiUrl} (internal EC2 communication)`);
-  console.log(`🛡️ Flask API is secured - only accessible from within EC2`);
+  console.log(`🌐 API calls will use: ${apiUrl}`);
+  console.log(`🔧 Note: Port 5000 must be open in Security Group for this to work`);
   
   return apiUrl;
 };
@@ -48,17 +47,17 @@ const apiCall = async (endpoint, options = {}) => {
     
     // Enhanced error messages for debugging
     if (error.name === 'TypeError' && error.message.includes('fetch')) {
-      throw new Error(`Cannot connect to Flask server at ${BASE}. Flask may not be running or there's a network issue.`);
+      throw new Error(`Cannot connect to Flask server at ${BASE}. Please ensure Flask is running and port 5000 is open in Security Group.`);
     }
     
     throw error;
   }
 };
 
-// ✅ Connection Test Function with EC2-specific messaging
+// ✅ Connection Test Function
 export const testConnection = async () => {
   try {
-    console.log(`🧪 Testing Flask connection on EC2 server...`);
+    console.log(`🧪 Testing Flask connection at: ${BASE}`);
     const response = await fetch(`${BASE}/api/health`, { 
       method: 'GET',
       timeout: 5000 
@@ -66,7 +65,7 @@ export const testConnection = async () => {
     
     if (response.ok) {
       const data = await response.json();
-      console.log(`✅ Flask server healthy on EC2:`, data);
+      console.log(`✅ Flask server healthy:`, data);
       return { success: true, message: 'Flask server connected successfully', data };
     } else {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -75,7 +74,7 @@ export const testConnection = async () => {
     console.error(`❌ Flask connection failed:`, error);
     return { 
       success: false, 
-      message: `Cannot connect to Flask server - check if Flask is running on EC2`,
+      message: `Cannot connect to Flask server at ${BASE}. Check if port 5000 is open in Security Group.`,
       error: error.message 
     };
   }
@@ -201,7 +200,7 @@ export const changeInstanceType = async (data) => {
       throw new Error('Missing required fields: instanceId, accountId, region, or newInstanceType');
     }
     
-    // This will now call localhost:5000 instead of external IP:5000
+    // This will now call the correct EC2 IP:5000
     return await apiCall('/api/change-instance-type', {
       method: 'POST',
       body: JSON.stringify(data)
@@ -251,27 +250,28 @@ export const testDynamoDB = async () => {
 // ✅ Export the base URL for debugging
 export const getApiBaseUrl = getBaseURL;
 
-// ✅ Auto-test connection on module load with EC2-specific messaging
+// ✅ Auto-test connection on module load
 (async () => {
   try {
-    console.log('🔄 Testing Flask connection on EC2 startup...');
+    console.log('🔄 Testing Flask connection on startup...');
     const connectionTest = await testConnection();
     if (connectionTest.success) {
       console.log('🎉 Flask server ready! Instance type changes will work perfectly.');
     } else {
-      console.warn('⚠️ Flask connection issue on EC2:', connectionTest.message);
+      console.warn('⚠️ Flask connection issue:', connectionTest.message);
+      console.warn('🔧 Make sure port 5000 is open in EC2 Security Group');
     }
   } catch (error) {
     console.warn('⚠️ Could not test Flask connection:', error.message);
   }
 })();
 
-// ✅ Console log configuration with EC2-specific info
-console.log('🔧 EC2 Secure API Configuration:', {
-  userAccessUrl: `http://${window.location.hostname}:${window.location.port}`,
-  internalApiUrl: BASE,
-  deploymentType: 'Secure EC2 with restricted Security Group',
-  flaskPortProtected: true,
+// ✅ Console log configuration
+console.log('🔧 EC2 API Configuration:', {
+  userAccessUrl: `${window.location.protocol}//${window.location.hostname}:${window.location.port}`,
+  flaskApiUrl: BASE,
+  deploymentType: 'EC2 Production',
+  securityNote: 'Port 5000 must be open in Security Group',
   ready: true
 });
 
@@ -284,7 +284,7 @@ export default {
   discoverInstances,
   deployCloudWatchAgent,
   configureAlarms,
-  changeInstanceType,    // ← This will now work perfectly!
+  changeInstanceType,    // ← This will work after opening port 5000!
   convertVolumes,
   healthCheck,
   testDynamoDB
