@@ -1050,28 +1050,50 @@ def health_check():
 
 
 if __name__ == "__main__":
-    flask_env = os.getenv('FLASK_ENV', 'production')
+    import sys
+    
+    # Get port from environment or default to 5000
+    port = int(os.getenv('PORT', 5000))
+    flask_env = os.getenv('FLASK_ENV', 'development')
+    
+    print("🚀 L1 Agentic CloudWatch Bot Starting...")
+    print("="*50)
+    print(f"📍 Environment: {flask_env}")
+    print(f"🌐 AWS Region: {AWS_REGION}")
+    print(f"📊 DynamoDB Table: {DYNAMODB_TABLE_NAME}")
+    print(f"⚡ Lambda Function: {LAMBDA_FUNCTION_NAME}")
+    print(f"🗺️  Discovery Regions: {len(DISCOVERY_REGIONS)} regions")
+    print(f"🔌 Port: {port}")
+    print("="*50)
     
     if flask_env == 'development':
-        logging.info("🔧 Starting in DEVELOPMENT mode...")
-        logging.info(f"AWS Region: {AWS_REGION}")
-        logging.info(f"DynamoDB Table: {DYNAMODB_TABLE_NAME}")
-        logging.info(f"Lambda Function: {LAMBDA_FUNCTION_NAME}")
-        logging.info(f"Discovery Regions: {len(DISCOVERY_REGIONS)} regions")
-        logging.info(f"Features: CloudWatch Agent Deployment + Real-time Alarm Detection with Instance Names + Instance Type Changes + Chat Integration")
-        # ✅ Safe for local development only
-        app.run(debug=True, host='127.0.0.1', port=5000)
-    else:
-        logging.info("🚀 Starting in PRODUCTION mode...")
-        logging.info(f"AWS Region: {AWS_REGION}")
-        logging.info(f"DynamoDB Table: {DYNAMODB_TABLE_NAME}")
-        logging.info(f"Lambda Function: {LAMBDA_FUNCTION_NAME}")
-        logging.info(f"Discovery Regions: {len(DISCOVERY_REGIONS)} regions")
-        logging.info("⚠️  Use Gunicorn for production: gunicorn --bind 0.0.0.0:5000 wsgi:app")
-        logging.info("⚠️  Development server not suitable for production!")
+        print("🔧 DEVELOPMENT MODE")
+        print(f"🌐 Local Access: http://localhost:{port}")
+        print(f"🌐 Network Access: http://YOUR_IP:{port}")
+        print("🐛 Debug mode: ON")
         
-        print("✅ To run in production:")
-        print("1. Use: gunicorn --bind 0.0.0.0:5000 wsgi:app")
-        print("2. Or deploy with systemd service")
-        print("3. Never use app.run() in production!")
-
+        # ✅ FIXED: Listen on all interfaces for network access
+        app.run(
+            debug=True, 
+            host='0.0.0.0',  # ✅ CHANGED: From 127.0.0.1 to 0.0.0.0
+            port=port,
+            threaded=True
+        )
+    else:
+        print("🚀 PRODUCTION MODE")
+        print("⚠️  For production, use: gunicorn --bind 0.0.0.0:5000 wsgi:app")
+        print("⚠️  Development server is NOT suitable for production!")
+        
+        # For immediate testing in production mode
+        try:
+            app.run(
+                debug=False, 
+                host='0.0.0.0',  # ✅ FIXED: Network accessible
+                port=port,
+                threaded=True
+            )
+        except Exception as e:
+            print(f"❌ Failed to start server: {e}")
+            print("💡 Try a different port:")
+            print(f"   PORT=5001 python app.py")
+            sys.exit(1)
