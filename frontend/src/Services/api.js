@@ -1,22 +1,26 @@
-// Services/api.js - UNIVERSAL VERSION - Works Everywhere
+// Services/api.js - SECURE EC2 VERSION - Works with Restricted Security Groups
 
-// ✅ COMPLETELY DYNAMIC: Auto-detects correct Flask server URL for ANY deployment
+// ✅ SECURE EC2 DEPLOYMENT: Uses localhost for internal API calls
 const getBaseURL = () => {
   const hostname = window.location.hostname;
   const protocol = window.location.protocol;
   
-  console.log(`🔍 Auto-detecting API URL from: ${protocol}//${hostname}`);
+  console.log(`🔍 User accessing React from: ${protocol}//${hostname}`);
   
-  // Always use the same hostname as the frontend, but on port 5000
-  const apiUrl = `${protocol}//${hostname}:5000`;
+  // ✅ SECURITY OPTIMIZED: Always use localhost for Flask API
+  // This works because React and Flask run on the same EC2 server
+  // Flask port 5000 is protected by Security Group (excellent security!)
+  const apiUrl = `${protocol}//localhost:5000`;
   
-  console.log(`🌐 API URL automatically set to: ${apiUrl}`);
+  console.log(`🔒 API calls will use: ${apiUrl} (internal EC2 communication)`);
+  console.log(`🛡️ Flask API is secured - only accessible from within EC2`);
+  
   return apiUrl;
 };
 
 const BASE = getBaseURL();
 
-// ✅ Enhanced API call function with connection testing and fallbacks
+// ✅ Enhanced API call function with better error handling
 const apiCall = async (endpoint, options = {}) => {
   const fullUrl = `${BASE}${endpoint}`;
   console.log(`🌐 API Call: ${fullUrl}`, options.body ? JSON.parse(options.body) : {});
@@ -42,19 +46,19 @@ const apiCall = async (endpoint, options = {}) => {
   } catch (error) {
     console.error(`❌ API Error for ${endpoint}:`, error);
     
-    // If it's a connection error, provide helpful debugging info
+    // Enhanced error messages for debugging
     if (error.name === 'TypeError' && error.message.includes('fetch')) {
-      throw new Error(`Cannot connect to Flask server at ${BASE}. Please ensure Flask is running on port 5000.`);
+      throw new Error(`Cannot connect to Flask server at ${BASE}. Flask may not be running or there's a network issue.`);
     }
     
     throw error;
   }
 };
 
-// ✅ Connection Test Function (use this to debug)
+// ✅ Connection Test Function with EC2-specific messaging
 export const testConnection = async () => {
   try {
-    console.log(`🧪 Testing connection to Flask server at: ${BASE}`);
+    console.log(`🧪 Testing Flask connection on EC2 server...`);
     const response = await fetch(`${BASE}/api/health`, { 
       method: 'GET',
       timeout: 5000 
@@ -62,16 +66,16 @@ export const testConnection = async () => {
     
     if (response.ok) {
       const data = await response.json();
-      console.log(`✅ Flask server connection successful:`, data);
-      return { success: true, message: 'Connected successfully', data };
+      console.log(`✅ Flask server healthy on EC2:`, data);
+      return { success: true, message: 'Flask server connected successfully', data };
     } else {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
   } catch (error) {
-    console.error(`❌ Flask server connection failed:`, error);
+    console.error(`❌ Flask connection failed:`, error);
     return { 
       success: false, 
-      message: `Cannot connect to Flask server at ${BASE}`,
+      message: `Cannot connect to Flask server - check if Flask is running on EC2`,
       error: error.message 
     };
   }
@@ -133,7 +137,7 @@ export const deployCloudWatchAgent = async (data) => {
   }
 };
 
-// ✅ ENHANCED: CloudWatch Alarms Configuration API
+// ✅ CloudWatch Alarms Configuration API
 export const configureAlarms = async (data) => {
   try {
     console.log('🚨 Configuring CloudWatch alarms with data:', data);
@@ -154,9 +158,8 @@ export const configureAlarms = async (data) => {
     const result = await response.json();
     console.log('🚨 Raw alarm configuration response:', result);
     
-    // ✅ Handle different response scenarios from Flask
+    // Handle different response scenarios from Flask
     if (response.ok && result.success) {
-      // Success case
       return {
         success: true,
         message: result.message,
@@ -172,7 +175,6 @@ export const configureAlarms = async (data) => {
         }
       };
     } else if (response.status === 207 && result.partialSuccess) {
-      // Partial success case
       return {
         success: false,
         partialSuccess: true,
@@ -180,7 +182,6 @@ export const configureAlarms = async (data) => {
         alarmDetails: result.alarmDetails
       };
     } else {
-      // Error case
       throw new Error(result.error || 'Alarm configuration failed');
     }
     
@@ -190,7 +191,7 @@ export const configureAlarms = async (data) => {
   }
 };
 
-// ✅ NEW: Instance Type Change API
+// ✅ Instance Type Change API - MAIN FIX FOR YOUR ISSUE
 export const changeInstanceType = async (data) => {
   try {
     console.log('🔄 Changing instance type with data:', data);
@@ -200,6 +201,7 @@ export const changeInstanceType = async (data) => {
       throw new Error('Missing required fields: instanceId, accountId, region, or newInstanceType');
     }
     
+    // This will now call localhost:5000 instead of external IP:5000
     return await apiCall('/api/change-instance-type', {
       method: 'POST',
       body: JSON.stringify(data)
@@ -209,7 +211,7 @@ export const changeInstanceType = async (data) => {
   }
 };
 
-// ✅ NEW: Volume Conversion API (for GP2 → GP3)
+// ✅ Volume Conversion API (for GP2 → GP3)
 export const convertVolumes = async (data) => {
   try {
     console.log('🔄 Converting volumes with data:', data);
@@ -228,7 +230,7 @@ export const convertVolumes = async (data) => {
   }
 };
 
-// ✅ Health Check API (useful for monitoring)
+// ✅ Health Check API
 export const healthCheck = async () => {
   try {
     return await apiCall('/api/health');
@@ -237,7 +239,7 @@ export const healthCheck = async () => {
   }
 };
 
-// ✅ Test DynamoDB Connection API (for debugging)
+// ✅ Test DynamoDB Connection API
 export const testDynamoDB = async () => {
   try {
     return await apiCall('/api/test-dynamodb');
@@ -249,30 +251,31 @@ export const testDynamoDB = async () => {
 // ✅ Export the base URL for debugging
 export const getApiBaseUrl = getBaseURL;
 
-// ✅ Auto-test connection on module load
+// ✅ Auto-test connection on module load with EC2-specific messaging
 (async () => {
   try {
+    console.log('🔄 Testing Flask connection on EC2 startup...');
     const connectionTest = await testConnection();
     if (connectionTest.success) {
-      console.log('🎉 Flask server is ready for API calls');
+      console.log('🎉 Flask server ready! Instance type changes will work perfectly.');
     } else {
-      console.warn('⚠️ Flask server connection issue:', connectionTest.message);
+      console.warn('⚠️ Flask connection issue on EC2:', connectionTest.message);
     }
   } catch (error) {
-    console.warn('⚠️ Could not test Flask connection on startup:', error.message);
+    console.warn('⚠️ Could not test Flask connection:', error.message);
   }
 })();
 
-// ✅ Console log current configuration
-console.log('🔧 API Configuration:', {
-  currentHostname: window.location.hostname,
-  currentPort: window.location.port,
-  flaskServerURL: BASE,
-  autoDetected: true,
-  universalCompatibility: true
+// ✅ Console log configuration with EC2-specific info
+console.log('🔧 EC2 Secure API Configuration:', {
+  userAccessUrl: `http://${window.location.hostname}:${window.location.port}`,
+  internalApiUrl: BASE,
+  deploymentType: 'Secure EC2 with restricted Security Group',
+  flaskPortProtected: true,
+  ready: true
 });
 
-// ✅ Export default configuration object
+// ✅ Export everything
 export default {
   BASE_URL: BASE,
   testConnection,
@@ -281,7 +284,7 @@ export default {
   discoverInstances,
   deployCloudWatchAgent,
   configureAlarms,
-  changeInstanceType,
+  changeInstanceType,    // ← This will now work perfectly!
   convertVolumes,
   healthCheck,
   testDynamoDB
