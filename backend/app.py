@@ -495,47 +495,28 @@ def check_cloudwatch_agent_status(instance_id, region, credentials):
             logging.info(f"Found {len(metrics)} metrics for instance {instance_id} in {namespace} namespace")
             
             if metrics:
-                for metric in metrics[:3]:
-                    metric_name = metric['MetricName']
-                    dimensions = metric['Dimensions']
-                    
-                    try:
-                        resp = cloudwatch.get_metric_statistics(
-                            Namespace=namespace,
-                            MetricName=metric_name,
-                            Dimensions=dimensions,
-                            StartTime=start,
-                            EndTime=now,
-                            Period=300,
-                            Statistics=['Average']
-                        )
-                        
-                        logging.info(f"Metric: {metric_name}, Datapoints: {len(resp['Datapoints'])}")
-                        
-                        if resp['Datapoints']:
-                            # Determine display text based on namespace and metric
-                            if namespace == 'CWAgent':
-                                if 'disk' in metric_name.lower():
-                                    display_text = f'{configured_symbol} Configured (CWAgent - disk_inodes_free)'
-                                else:
-                                    display_text = f'{configured_symbol} Configured (CWAgent - {metric_name.lower()})'
-                            else:
-                                display_text = f'{configured_symbol} Configured ({namespace} - {metric_name})'
-                                
-                            return {
-                                'configured': True,
-                                'display': display_text,
-                                'status': 'running',
-                                'action_needed': False,
-                                'details': {
-                                    'namespace': namespace,
-                                    'metricsFound': len(metrics),
-                                    'lastDatapoint': resp['Datapoints'][-1]['Timestamp'].isoformat() if resp['Datapoints'] else None
-                                }
-                            }
-                    except Exception as e:
-                        logging.warning(f"Error checking metric {metric_name}: {e}")
-                        continue
+                # ✅ FIXED: If metrics exist, agent is configured!
+                metric_name = metrics[0]['MetricName']
+                
+                # Determine display text based on namespace and metric
+                if namespace == 'CWAgent':
+                    display_text = f'{configured_symbol} Configured (CWAgent - {metric_name.lower()})'
+                else:
+                    display_text = f'{configured_symbol} Configured ({namespace} - {metric_name})'
+                
+                logging.info(f"✅ Found {len(metrics)} CWAgent metrics for {instance_id}")
+                
+                return {
+                    'configured': True,
+                    'display': display_text,
+                    'status': 'running',
+                    'action_needed': False,
+                    'details': {
+                        'namespace': namespace,
+                        'metricsFound': len(metrics),
+                        'sampleMetric': metric_name
+                    }
+                }
         
         except Exception as e:
             logging.warning(f"Error listing {namespace} metrics for {instance_id}: {e}")
@@ -547,6 +528,7 @@ def check_cloudwatch_agent_status(instance_id, region, credentials):
         'action_needed': True,
         'suggestions': ['Install CloudWatch agent', 'Check IAM permissions', 'Verify instance connectivity']
     }
+
 
 def discover_instances_in_account(account_id, credentials):
     logging.info(f"Discovering instances in account: {account_id}")
