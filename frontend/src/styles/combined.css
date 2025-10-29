@@ -1,4 +1,4 @@
-/* combined.css - COMPLETE FIXED VERSION - Chat Bubbles Aligned Correctly */
+/* combined.css - COMPLETE VERSION WITH VOLUME CONVERSION STYLES + FIXED CHAT ALIGNMENT */
 
 /* ===================== CORE VARIABLES ===================== */
 :root {
@@ -16,6 +16,13 @@
   --warning-light: #FEF3C7;
   --danger-red: #DC2626;
   --danger-light: #FEE2E2;
+  
+  /* Volume Conversion Colors */
+  --volume-green: #10B981;
+  --volume-green-dark: #047857;
+  --volume-green-darker: #065F46;
+  --volume-light: #ECFDF5;
+  --volume-border: #BBF7D0;
   
   /* Neutral Colors */
   --text-dark: #374151;
@@ -112,7 +119,7 @@
   user-select: none;
 }
 
-/* ===================== MESSAGES AREA - FIXED ALIGNMENT ===================== */
+/* ===================== MESSAGES AREA - UPDATED ===================== */
 
 .mojobot-messages {
   flex: 1;
@@ -121,7 +128,7 @@
   padding: 28px 24px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 12px;
   min-height: 0;
 }
 
@@ -143,38 +150,44 @@
   background: #a8a8a8;
 }
 
-/* ✅ FIXED: Message Bubbles with Proper Alignment */
+/* ✅ UPDATED: Chat bubble base styles with proper alignment */
 .mojobot-bubble {
-  max-width: 80%;
+  max-width: 75%;
   padding: clamp(12px, 2vw, 20px) clamp(16px, 2.5vw, 26px);
   border-radius: 20px;
   font-size: clamp(14px, 1.8vw, 17px);
   line-height: 1.5;
   word-break: break-word;
-  display: inline-block;
   box-shadow: 0 2px 10px rgba(80,56,239,0.08);
-  margin-bottom: 12px;
+  margin-bottom: 4px;
+  clear: both;
 }
 
-/* ✅ USER messages - RIGHT side (purple bubbles) */
+/* ✅ UPDATED: User messages - RIGHT aligned (like WhatsApp blue bubbles) */
 .mojobot-user {
   background: linear-gradient(90deg, #6d4aff 0%, var(--secondary-purple) 100%);
   color: #fff;
-  align-self: flex-end !important;        /* ✅ Force RIGHT alignment */
+  align-self: flex-end;
   border-bottom-right-radius: 6px;
-  margin-left: auto !important;           /* ✅ Force push to right */
-  margin-right: 0 !important;
+  margin-left: auto;
+  float: right;
 }
 
-/* ✅ BOT messages - LEFT side (white bubbles) */
+/* ✅ UPDATED: Bot messages - LEFT aligned (like WhatsApp gray bubbles) */
 .mojobot-bot {
   background: #fff;
   color: #363953;
-  align-self: flex-start !important;      /* ✅ Force LEFT alignment */
-  border-bottom-left-radius: 6px; 
-  margin-right: auto !important;          /* ✅ Force push to left */
-  margin-left: 0 !important;
-  border: 1px solid #e2e8f0;
+  align-self: flex-start;
+  border-bottom-left-radius: 6px;
+  margin-right: auto;
+  float: left;
+}
+
+/* ✅ NEW: Clearfix to prevent float overlap */
+.mojobot-bubble::after {
+  content: "";
+  display: table;
+  clear: both;
 }
 
 /* ===================== INPUT AREA ===================== */
@@ -373,7 +386,7 @@
   border-collapse: collapse;
   font-size: 14px;
   table-layout: fixed;
-  min-width: 1600px;
+  min-width: 1700px;
 }
 
 .instances-table thead {
@@ -393,17 +406,18 @@
   border-right: 1px solid rgba(255,255,255,0.1);
 }
 
-/* ✅ FIXED: Column widths */
-.instances-table th:nth-child(1) { width: 200px; }  /* INSTANCE ID */
-.instances-table th:nth-child(2) { width: 150px; }  /* INSTANCE NAME */
-.instances-table th:nth-child(3) { width: 100px; }  /* STATUS */
-.instances-table th:nth-child(4) { width: 100px; }  /* REGION */
-.instances-table th:nth-child(5) { width: 100px; }  /* PLATFORM */
-.instances-table th:nth-child(6) { width: 120px; }  /* INSTANCE TYPE */
-.instances-table th:nth-child(7) { width: 300px; }  /* CW AGENT CONFIG */
-.instances-table th:nth-child(8) { width: 150px; }  /* INSTANCE TYPE CHANGE */
-.instances-table th:nth-child(9) { width: 180px; }  /* ALARM CONFIGURATION */
-.instances-table th:nth-child(10) { width: 120px; } /* ALARM ACTIVE */
+/* Column widths */
+.instances-table th:nth-child(1) { width: 200px; }
+.instances-table th:nth-child(2) { width: 150px; }
+.instances-table th:nth-child(3) { width: 100px; }
+.instances-table th:nth-child(4) { width: 100px; }
+.instances-table th:nth-child(5) { width: 100px; }
+.instances-table th:nth-child(6) { width: 120px; }
+.instances-table th:nth-child(7) { width: 300px; }
+.instances-table th:nth-child(8) { width: 150px; }
+.instances-table th:nth-child(9) { width: 150px; }
+.instances-table th:nth-child(10) { width: 180px; }
+.instances-table th:nth-child(11) { width: 120px; }
 
 .instances-table td {
   padding: 16px 12px;
@@ -429,8 +443,9 @@
 .instances-table td:nth-child(6) { width: 120px; text-align: center; }
 .instances-table td:nth-child(7) { width: 300px; padding-left: 16px; }
 .instances-table td:nth-child(8) { width: 150px; text-align: center; padding: 12px 8px; }
-.instances-table td:nth-child(9) { width: 180px; text-align: center; padding: 12px 8px; }
-.instances-table td:nth-child(10) { width: 120px; text-align: center; padding: 12px 8px; }
+.instances-table td:nth-child(9) { width: 150px; text-align: center; padding: 12px 8px; }
+.instances-table td:nth-child(10) { width: 180px; text-align: center; padding: 12px 8px; }
+.instances-table td:nth-child(11) { width: 120px; text-align: center; padding: 12px 8px; }
 
 .instances-table tbody tr {
   transition: background-color 0.2s ease;
@@ -655,6 +670,29 @@
   box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3) !important;
 }
 
+.volume-conversion-btn {
+  background: linear-gradient(135deg, var(--volume-green) 0%, var(--volume-green-dark) 100%) !important;
+  box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
+  color: white !important;
+  border: none !important;
+  transition: all 0.2s ease;
+}
+
+.volume-conversion-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, var(--volume-green-dark) 0%, var(--volume-green-darker) 100%) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(16, 185, 129, 0.3);
+}
+
+.volume-conversion-btn:active {
+  transform: translateY(0);
+}
+
+.volume-conversion-btn:disabled {
+  animation: volumeConvertPulse 1.5s infinite;
+  cursor: not-allowed !important;
+}
+
 /* ===================== MODALS ===================== */
 
 .modal-overlay {
@@ -746,6 +784,246 @@
   min-width: 120px;
   transition: all 0.2s ease;
   height: auto;
+}
+
+/* ===================== VOLUME CONVERSION MODAL ===================== */
+
+.volume-modal-header {
+  background: linear-gradient(135deg, var(--volume-green) 0%, var(--volume-green-dark) 100%);
+  color: white;
+  padding: 20px;
+  border-radius: 8px 8px 0 0;
+}
+
+.volume-info-card {
+  background: var(--volume-light);
+  border: 1px solid var(--volume-border);
+  border-radius: 8px;
+  padding: 16px;
+  margin: 16px 0;
+}
+
+.volume-info-card h4 {
+  margin: 0 0 12px 0;
+  color: var(--volume-green-dark);
+  font-size: 16px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.volume-info-card label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  padding: 8px 0;
+  font-size: 14px;
+  color: var(--text-dark);
+}
+
+.volume-info-card input[type="radio"] {
+  accent-color: var(--volume-green);
+  margin-right: 8px;
+  cursor: pointer;
+}
+
+.volume-info-card input[type="checkbox"] {
+  accent-color: var(--volume-green);
+  margin-right: 12px;
+  cursor: pointer;
+}
+
+.volume-benefit-card {
+  background: linear-gradient(135deg, var(--volume-light) 0%, #D1FAE5 100%);
+  border: 1px solid var(--volume-green);
+  border-radius: 8px;
+  padding: 16px;
+  margin: 16px 0;
+}
+
+.volume-benefit-card h4 {
+  margin: 0 0 12px 0;
+  color: var(--volume-green-dark);
+  font-size: 16px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.volume-benefit-card ul {
+  margin: 0;
+  padding-left: 20px;
+  color: var(--text-dark);
+  line-height: 1.6;
+}
+
+.volume-benefit-card li {
+  margin: 8px 0;
+}
+
+.volume-benefit-card strong {
+  color: var(--volume-green-dark);
+}
+
+.volume-conversion-progress {
+  background: var(--volume-light);
+  border-radius: 8px;
+  padding: 12px;
+  margin: 12px 0;
+  text-align: center;
+}
+
+.volume-conversion-progress h4 {
+  margin: 0 0 8px 0;
+  color: var(--volume-green-dark);
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.volume-conversion-progress p {
+  margin: 0;
+  color: var(--text-light);
+  font-size: 14px;
+}
+
+.volume-selection-container {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid #D1D5DB;
+  border-radius: 6px;
+  padding: 8px;
+  background: white;
+}
+
+.volume-selection-item {
+  display: flex;
+  align-items: center;
+  padding: 8px;
+  border-bottom: 1px solid #F3F4F6;
+  transition: background-color 0.2s ease;
+}
+
+.volume-selection-item:last-child {
+  border-bottom: none;
+}
+
+.volume-selection-item:hover {
+  background-color: #F9FAFB;
+}
+
+.volume-selection-item.selected {
+  background-color: var(--volume-light);
+}
+
+.volume-item-details {
+  flex: 1;
+  margin-left: 12px;
+}
+
+.volume-item-id {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-dark);
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+}
+
+.volume-item-info {
+  font-size: 12px;
+  color: var(--text-light);
+  margin-top: 2px;
+  line-height: 1.4;
+}
+
+.volume-item-savings {
+  font-size: 12px;
+  color: var(--volume-green-dark);
+  font-weight: 600;
+  text-align: right;
+  padding: 0 8px;
+}
+
+.volume-selection-controls {
+  margin-bottom: 16px;
+  display: flex;
+  gap: 8px;
+}
+
+.volume-selection-controls button {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.volume-selection-controls .select-all {
+  background-color: var(--volume-green);
+  color: white;
+}
+
+.volume-selection-controls .select-all:hover {
+  background-color: var(--volume-green-dark);
+}
+
+.volume-selection-controls .clear-all {
+  background-color: var(--text-light);
+  color: white;
+}
+
+.volume-selection-controls .clear-all:hover {
+  background-color: var(--text-medium);
+}
+
+.volume-summary-card {
+  margin-top: 16px;
+  padding: 12px;
+  background-color: var(--volume-light);
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.volume-summary-card strong {
+  color: var(--volume-green-dark);
+}
+
+.volume-error-state {
+  text-align: center;
+  padding: 40px 20px;
+}
+
+.volume-error-state h4 {
+  color: var(--danger-red);
+  margin: 0 0 12px 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.volume-error-state p {
+  color: var(--text-light);
+  margin: 0 0 20px 0;
+  line-height: 1.6;
+}
+
+.volume-no-volumes-state {
+  text-align: center;
+  padding: 40px 20px;
+}
+
+.volume-no-volumes-state h4 {
+  color: var(--volume-green-dark);
+  margin: 0 0 12px 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.volume-no-volumes-state p {
+  color: var(--text-light);
+  margin: 0;
+  line-height: 1.6;
 }
 
 /* Instance Type Change Modal */
@@ -986,7 +1264,89 @@
   animation: progress 2s ease-in-out infinite;
 }
 
-/* ✅ CONSOLIDATED: All Animations */
+/* Success and error states */
+.volume-success-state {
+  background: linear-gradient(135deg, var(--volume-light) 0%, #D1FAE5 100%);
+  border: 2px solid var(--volume-green);
+  color: var(--volume-green-dark);
+  padding: 20px;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.volume-error-state {
+  background: linear-gradient(135deg, var(--danger-light) 0%, #FECACA 100%);
+  border: 2px solid #EF4444;
+  color: var(--danger-red);
+  padding: 20px;
+  border-radius: 8px;
+  text-align: center;
+}
+
+/* ===================== TABLE INSTRUCTIONS ===================== */
+
+.table-instructions {
+  padding: 16px;
+  background-color: #F8FAFC;
+  border-top: 1px solid #E2E8F0;
+  border-radius: 0 0 12px 12px;
+  font-size: 14px;
+  color: var(--text-light);
+}
+
+.table-instructions div {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.table-instructions strong {
+  font-weight: 600;
+}
+
+.table-instructions strong[style*="color: #10B981"] {
+  color: var(--volume-green) !important;
+}
+
+.instance-summary {
+  margin-top: 20px;
+  padding: 16px;
+  background-color: #F8FAFC;
+  border-radius: 8px;
+  border: 1px solid #E2E8F0;
+}
+
+.instance-summary div {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.instance-summary strong {
+  color: var(--text-dark);
+  font-weight: 600;
+}
+
+.no-instances {
+  text-align: center;
+  padding: 40px;
+  color: var(--text-light);
+}
+
+.no-instances h4 {
+  color: var(--text-dark);
+  margin: 16px 0 8px 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.no-instances p {
+  margin: 0;
+  line-height: 1.6;
+}
+
+/* ===================== ANIMATIONS ===================== */
+
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -1025,7 +1385,31 @@
   100% { width: 0%; }
 }
 
+@keyframes loading {
+  0% { transform: translateX(-100%); }
+  50% { transform: translateX(100%); }
+  100% { transform: translateX(-100%); }
+}
+
+@keyframes volumeConvertPulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.7; }
+  100% { opacity: 1; }
+}
+
 /* ===================== RESPONSIVE DESIGN ===================== */
+
+@media (max-width: 1400px) {
+  .instances-table th:nth-child(8),
+  .instances-table td:nth-child(8) {
+    min-width: 130px;
+  }
+  
+  .volume-conversion-btn {
+    font-size: 10px !important;
+    padding: 4px 8px !important;
+  }
+}
 
 @media (max-width: 768px) {
   .instance-details-grid {
@@ -1046,7 +1430,7 @@
   
   .instances-table {
     font-size: 11px;
-    min-width: 1400px;
+    min-width: 1600px;
   }
   
   .instances-table th,
@@ -1054,11 +1438,42 @@
     padding: 12px 8px;
   }
   
-  .btn-warning {
+  .btn-warning,
+  .volume-conversion-btn {
     min-width: 90px !important;
     font-size: 10px !important;
     padding: 6px 8px !important;
     height: 28px !important;
+  }
+  
+  .volume-modal-header {
+    padding: 16px;
+  }
+  
+  .volume-modal-header h3 {
+    font-size: 18px;
+  }
+  
+  .volume-info-card,
+  .volume-benefit-card {
+    padding: 12px;
+    margin: 12px 0;
+  }
+  
+  .volume-selection-container {
+    max-height: 150px;
+  }
+  
+  .volume-selection-item {
+    padding: 6px;
+  }
+  
+  .volume-item-id {
+    font-size: 12px;
+  }
+  
+  .volume-item-info {
+    font-size: 11px;
   }
 }
 
@@ -1075,63 +1490,23 @@
   .modal-footer {
     padding: 16px !important;
   }
-}
-/* ===================== FORCE CHAT ALIGNMENT - OVERRIDE ALL ===================== */
-
-/* ✅ FORCE Bot messages to LEFT with highest specificity */
-.mojobot-messages .mojobot-bubble.mojobot-bot {
-  align-self: flex-start !important;
-  margin-left: 0 !important;
-  margin-right: auto !important;
-  text-align: left !important;
-  float: none !important;
-  clear: both !important;
-}
-
-/* ✅ FORCE User messages to RIGHT with highest specificity */
-.mojobot-messages .mojobot-bubble.mojobot-user {
-  align-self: flex-end !important;
-  margin-left: auto !important;
-  margin-right: 0 !important;
-  text-align: right !important;
-  float: none !important;
-  clear: both !important;
-}
-
-/* ✅ FORCE message container to be flex */
-.mojobot-messages {
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: stretch !important;
-}
-
-/* ✅ Alternative approach - using flexbox on individual messages */
-.mojobot-bot {
-  display: flex !important;
-  justify-self: flex-start !important;
-  width: fit-content !important;
-  max-width: 80% !important;
-}
-
-.mojobot-user {
-  display: flex !important;
-  justify-self: flex-end !important;
-  width: fit-content !important;
-  max-width: 80% !important;
-  margin-left: auto !important;
-}
-
-/* ✅ Nuclear option - using CSS Grid */
-.mojobot-messages > .mojobot-bot {
-  justify-self: start !important;
-}
-
-.mojobot-messages > .mojobot-user {
-  justify-self: end !important;
-}
-
-/* ✅ Ensure no conflicting styles */
-.mojobot-bubble {
-  position: relative !important;
-  display: block !important;
+  
+  .volume-modal-header {
+    padding: 12px !important;
+  }
+  
+  .volume-info-card,
+  .volume-benefit-card {
+    padding: 10px !important;
+    margin: 8px 0 !important;
+  }
+  
+  .volume-selection-controls {
+    flex-direction: column;
+    gap: 4px;
+  }
+  
+  .volume-selection-controls button {
+    width: 100%;
+  }
 }
