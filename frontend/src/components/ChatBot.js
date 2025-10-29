@@ -12,7 +12,7 @@ export default function ChatBot() {
   const [messages, setMessages] = useState([
     {
       from: 'bot',
-      text: "Hi! Welcome to the L1 Activity Bot. I'm your virtual assistant. I can help you discover instances across your AWS accounts and configure CloudWatch agents.",
+      text: "Hi! Welcome to the L1 Activity Bot. I'm your virtual assistant. I can help you discover instances across your AWS accounts and configure CloudWatch agents, set up monitoring alarms, change instance types, and convert GP2 volumes to GP3 for cost savings!",
       type: 'text'
     }
   ]);
@@ -35,7 +35,7 @@ export default function ChatBot() {
     messageEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading]);
 
-  // ✅ NEW: Add message to chat function
+  // Add message to chat function
   const addMessage = (text, sender = 'user') => {
     const newMessage = {
       from: sender === 'user' ? 'user' : 'bot',
@@ -47,7 +47,7 @@ export default function ChatBot() {
     console.log(`💬 Chat message added: ${text.substring(0, 50)}... from ${sender}`);
   };
 
-  // ✅ NEW: Handle refresh instances function
+  // Handle refresh instances function
   const handleRefreshInstances = async () => {
     if (!selectedAccount) return;
     
@@ -59,7 +59,7 @@ export default function ChatBot() {
         console.log(`✅ Refresh successful: ${result.data.instances.length} instances`);
         setInstances(result.data.instances);
         
-        // ✅ Update the table message data for real-time display
+        // Update the table message data for real-time display
         setMessages(prev => prev.map(msg => {
           if (msg.type === 'instances-table' && msg.data?.accountId === selectedAccount) {
             return {
@@ -91,6 +91,17 @@ export default function ChatBot() {
 
   const checkAlarmIntent = (userInput) => {
     const keywords = ['alarm', 'alert', 'threshold', 'notification', 'warning', 'metric'];
+    return keywords.some(keyword => userInput.toLowerCase().includes(keyword));
+  };
+
+  const checkInstanceTypeChangeIntent = (userInput) => {
+    const keywords = ['change', 'resize', 'upgrade', 'instance type', 'scale', 'modify instance'];
+    return keywords.some(keyword => userInput.toLowerCase().includes(keyword));
+  };
+
+  // *** NEW: Volume conversion intent detection ***
+  const checkVolumeConversionIntent = (userInput) => {
+    const keywords = ['volume', 'gp2', 'gp3', 'storage', 'convert', 'migrate', 'cost saving', 'optimize storage'];
     return keywords.some(keyword => userInput.toLowerCase().includes(keyword));
   };
 
@@ -126,7 +137,7 @@ export default function ChatBot() {
     }
   };
 
-  // ✅ UPDATED: Handle account selection with alarm counting
+  // Handle account selection with enhanced counting
   const handleAccountSelect = async (accountId) => {
     setSelectedAccount(accountId);
     
@@ -148,21 +159,27 @@ export default function ChatBot() {
       const result = await discoverInstances(accountId);
       
       if (result.status === 'success') {
-        // ✅ Update instances state for real-time updates
+        // Update instances state for real-time updates
         const instancesWithAlarms = result.data.instances || [];
         setInstances(instancesWithAlarms);
         
-        // ✅ Enhanced counting with alarm status
+        // Enhanced counting with alarm status
         const unconfiguredCount = instancesWithAlarms.filter(i => i.ActionNeeded && i.State === 'running').length;
         const configuredCount = instancesWithAlarms.filter(i => i.CloudWatchConfigured && i.State === 'running').length;
         const alarmsConfiguredCount = instancesWithAlarms.filter(i => i.AlarmsConfigured && i.State === 'running').length;
 
-        // ✅ Enhanced message with alarm information
+        // Enhanced message with alarm information and new features
         let message = `Found ${result.data.instances.length} instances in total:
         
 🔧 ${unconfiguredCount} instances need CloudWatch agent installation
 ✅ ${configuredCount} instances have CloudWatch agent configured
 🎯 ${alarmsConfiguredCount} instances have alarms configured
+
+💡 **Available Actions:**
+• **CloudWatch Agent:** Install monitoring on unconfigured instances
+• **Volume Conversion:** Convert GP2 volumes to GP3 for cost savings (up to 20%)
+• **Instance Type Change:** Resize instances for better performance
+• **Alarm Configuration:** Set up monitoring thresholds
 
 Use the action buttons in the table below to manage your instances:`;
 
@@ -268,7 +285,7 @@ Please check the instance permissions and try again.`,
     }
   };
 
-  // Enhanced message handling with alarm intent
+  // *** ENHANCED: Message handling with all intent types ***
   const handleSend = async () => {
     const value = input.trim();
     if (!value) return;
@@ -280,13 +297,59 @@ Please check the instance permissions and try again.`,
     try {
       console.log('=== HANDLE SEND CALLED ===', value);
       
+      // Check for Volume Conversion intent
+      if (checkVolumeConversionIntent(value)) {
+        console.log('=== VOLUME CONVERSION INTENT DETECTED ===');
+        
+        setMessages(prev => [...prev, {
+          from: 'bot',
+          text: `🎯 **Great choice! GP2 to GP3 volume conversion can save you up to 20% on storage costs while improving performance.**
+
+I'll help you convert your GP2 volumes to GP3! This optimization offers:
+
+🔧 **Process:**
+• No downtime required - conversion happens live
+• Takes 5-15 minutes per volume
+• Automatic performance optimization
+
+Let me show you your instances so you can select volumes for conversion:`,
+          type: 'text'
+        }]);
+        
+        await fetchAccountGroups();
+      }
+      // Check for Instance Type Change intent
+      else if (checkInstanceTypeChangeIntent(value)) {
+        console.log('=== INSTANCE TYPE CHANGE INTENT DETECTED ===');
+        
+        setMessages(prev => [...prev, {
+          from: 'bot',
+          text: `🔧 **I'll help you change instance types safely!** 
+
+⚠️ **Important Notes:**
+• Instance type changes require a stop/start cycle
+• Expect 2-5 minutes of downtime during the change
+• All data on instance store volumes will be lost
+• EBS volumes and network settings are preserved
+
+🎯 **Benefits:**
+• Optimize performance for your workload
+• Right-size instances for cost efficiency
+• Upgrade to newer generation instances
+
+Let me show you your instances so you can select which ones need type changes:`,
+          type: 'text'
+        }]);
+        
+        await fetchAccountGroups();
+      }
       // Check for CloudWatch intent
-      if (checkCloudWatchIntent(value)) {
+      else if (checkCloudWatchIntent(value)) {
         console.log('=== CLOUDWATCH INTENT DETECTED ===');
         
         setMessages(prev => [...prev, {
           from: 'bot',
-          text: "I'll scan your accounts and show current CloudWatch agent status...",
+          text: "I'll scan your accounts ",
           type: 'text'
         }]);
         
@@ -320,9 +383,23 @@ Please check the instance permissions and try again.`,
           } else if (result.intent === 'alarm_configuration') {
             botReply = result.message;
             setTimeout(() => fetchAccountGroups(), 1000);
+          } else if (result.intent === 'instance_type_change') {
+            botReply = result.message;
+            setTimeout(() => fetchAccountGroups(), 1000);
+          } else if (result.intent === 'volume_conversion') {
+            botReply = result.message;
+            setTimeout(() => fetchAccountGroups(), 1000);
           } else {
-            // Add helpful suggestions
-            botReply += "\n\n💡 Try saying:\n• 'configure cloudwatch agent'\n• 'set up alarms'\n• 'initiate cloudwatch'";
+            // *** ENHANCED: Updated suggestions with new features ***
+            botReply += `
+
+💡 **Try saying:**
+• **'configure cloudwatch agent'** - Install monitoring
+• **'set up alarms'** - Configure monitoring alerts  
+• **'change instance type'** - Resize instances
+• **'convert volumes to GP3'** - Optimize storage costs
+• **'optimize storage'** - Convert GP2 volumes for savings
+• **'show my instances'** - View all instances`;
           }
           
           setMessages(prev => [...prev, { from: 'bot', text: botReply, type: 'text' }]);
@@ -334,7 +411,13 @@ Please check the instance permissions and try again.`,
       console.error('Error in handleSend:', error);
       setMessages(prev => [...prev, { 
         from: 'bot', 
-        text: 'Error communicating with backend. Please try again.',
+        text: `Error communicating with backend. Please try again.
+
+💡 **Available commands:**
+• 'configure cloudwatch'
+• 'set up alarms'  
+• 'change instance type'
+• 'convert volumes to GP3'`,
         type: 'text'
       }]);
     } finally {
@@ -356,7 +439,7 @@ Please check the instance permissions and try again.`,
         <div style={{ flex: 1 }}>
           <div className="mojobot-title">Chat with L1 Activity Bot</div>
           <div className="mojobot-status">
-            <span className="mojobot-dot" /> Ready to help you!
+            <span className="mojobot-dot" /> Ready to help you! 💿 GP2→GP3 • 🔧 Instance Types • ⚠️ Alarms • 📊 Monitoring
           </div>
         </div>
         <div className="mojobot-menu">⋮</div>
@@ -385,17 +468,16 @@ Please check the instance permissions and try again.`,
             {msg.type === 'instances-table' && msg.from === 'bot' && (
               <div className="mojobot-bubble mojobot-bot">
                 <div dangerouslySetInnerHTML={{ __html: msg.text.replace(/\n/g, "<br />") }} />
-                {/* ✅ FIXED: Updated InstanceDetailsTable with all required props */}
                 <InstanceDetailsTable 
-                  instances={instances}                    // ✅ Use state instances for real-time updates
-                  setInstances={setInstances}              // ✅ CRITICAL: For local state updates
+                  instances={instances}
+                  setInstances={setInstances}
                   accountId={msg.data.accountId}
                   onInstanceSelect={(instanceId) => {
                     const instance = instances.find(i => i.InstanceId === instanceId);
                     handleInstanceSelect(instanceId, instance.Region);
                   }}
-                  onAddMessage={addMessage}                // ✅ CRITICAL: For chat integration
-                  onRefresh={handleRefreshInstances}       // ✅ CRITICAL: For refresh functionality
+                  onAddMessage={addMessage}
+                  onRefresh={handleRefreshInstances}
                 />
               </div>
             )}
@@ -406,13 +488,14 @@ Please check the instance permissions and try again.`,
         <div ref={messageEndRef} />
       </div>
       
+      {/* *** ENHANCED: Updated input placeholder *** */}
       <div className="mojobot-inputbar">
         <input
           className="mojobot-input"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={onKeyDown}
-          placeholder="Enter your message..."
+          placeholder="Try: 'convert volumes to GP3', 'change instance type', 'configure cloudwatch'..."
           disabled={loading}
         />
         <button
