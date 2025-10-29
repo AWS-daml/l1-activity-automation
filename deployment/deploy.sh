@@ -95,8 +95,12 @@ fi
 print_status "⚛️  Setting up React frontend..."
 cd ../frontend
 
+# ✅ FIXED: Clean previous builds to avoid dependency conflicts
+print_status "Cleaning previous builds..."
+rm -rf node_modules package-lock.json build
+
 # Install Node.js dependencies
-print_status "Installing Node.js dependencies..."
+print_status "Installing Node.js dependencies (fresh install)..."
 npm install
 
 # Build React application
