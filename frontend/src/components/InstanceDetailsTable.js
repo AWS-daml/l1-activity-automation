@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import AlarmConfigurationModal from './AlarmConfigurationModal';
 import InstanceTypeChangeModal from './InstanceTypeChangeModal';
+import VolumeConversionModal from './VolumeConversionModal';  // *** NEW IMPORT ***
 import { deployCloudWatchAgent, configureAlarms, discoverInstances } from '../Services/api';
 
 const InstanceDetailsTable = ({ 
@@ -22,11 +23,18 @@ const InstanceDetailsTable = ({
   const [alarmLoading, setAlarmLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  // *** Instance type change modal state ***
+  // Instance type change modal state
   const [instanceTypeModal, setInstanceTypeModal] = useState({
     show: false,
     instance: null
   });
+
+  // *** NEW: Volume conversion modal state ***
+  const [volumeConversionModal, setVolumeConversionModal] = useState({
+    show: false,
+    instance: null
+  });
+  const [volumeLoading, setVolumeLoading] = useState(false);
 
   // Refresh button handler - fetches real-time data
   const handleRefreshInstances = async () => {
@@ -142,9 +150,17 @@ const InstanceDetailsTable = ({
     });
   };
 
-  // *** Handle instance type change ***
+  // Handle instance type change
   const handleInstanceTypeChange = (instance) => {
     setInstanceTypeModal({
+      show: true,
+      instance: instance
+    });
+  };
+
+  // *** NEW: Handle volume conversion ***
+  const handleVolumeConversion = (instance) => {
+    setVolumeConversionModal({
       show: true,
       instance: instance
     });
@@ -234,7 +250,7 @@ const InstanceDetailsTable = ({
     }
   };
 
-  // *** Handle successful instance type change ***
+  // Handle successful instance type change
   const handleInstanceTypeChangeSuccess = () => {
     setInstanceTypeModal({ show: false, instance: null });
     
@@ -256,6 +272,33 @@ const InstanceDetailsTable = ({
     setTimeout(() => {
       handleRefreshInstances();
     }, 2000);
+  };
+
+  // *** NEW: Handle successful volume conversion ***
+  const handleVolumeConversionSuccess = (conversionResults) => {
+    setVolumeConversionModal({ show: false, instance: null });
+    
+    if (onAddMessage) {
+      const { instance } = volumeConversionModal;
+      const displayName = instance.InstanceName || instance.InstanceId;
+      
+      const successMessage = `✅ **Volume conversion to GP3 initiated successfully!**\n\n` +
+        `💿 **Instance:** ${displayName}\n` +
+        `📊 **Account:** ${accountId}\n` +
+        `🔄 **Volumes Converting:** ${conversionResults.totalVolumes || 'Multiple'}\n` +
+        `💰 **Expected Savings:** ~20% cost reduction\n` +
+        `⏱️ **Estimated Time:** 5-15 minutes per volume\n\n` +
+        `🔄 **Conversion running in background...**`;
+      
+      setTimeout(() => {
+        onAddMessage(successMessage, 'bot');
+      }, 500);
+    }
+    
+    // Refresh after a delay to allow conversion to start
+    setTimeout(() => {
+      handleRefreshInstances();
+    }, 3000);
   };
 
   // Format success message for chat
@@ -346,9 +389,10 @@ const InstanceDetailsTable = ({
                 <th>PLATFORM</th>
                 <th>INSTANCE TYPE</th>
                 <th>CW AGENT CONFIG</th>
-                <th>INSTANCE TYPE CHANGE</th>  {/* *** NEW COLUMN *** */}
-                <th>ALARM CONFIGURATION</th>   {/* *** NEW COLUMN *** */}
-                <th>ALARM ACTIVE</th>          {/* *** NEW COLUMN *** */}
+                <th>VOLUME CONVERSION</th>        {/* *** NEW COLUMN *** */}
+                <th>INSTANCE TYPE CHANGE</th>
+                <th>ALARM CONFIGURATION</th>
+                <th>ALARM ACTIVE</th>
               </tr>
             </thead>
             <tbody>
@@ -411,7 +455,36 @@ const InstanceDetailsTable = ({
                       </span>
                     </td>
                     
-                    {/* *** NEW COLUMN: Instance Type Change *** */}
+                    {/* *** NEW COLUMN: Volume Conversion *** */}
+                    <td style={{ textAlign: 'center' }}>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleVolumeConversion(instance);
+                        }}
+                        disabled={instance.State === 'terminated' || volumeLoading}
+                        className="volume-conversion-btn"
+                        style={{
+                          backgroundColor: '#10B981',
+                          borderColor: '#10B981',
+                          color: 'white',
+                          padding: '6px 12px',
+                          borderRadius: '6px',
+                          fontSize: '11px',
+                          fontWeight: '500',
+                          cursor: (instance.State === 'terminated' || volumeLoading) ? 'not-allowed' : 'pointer',
+                          opacity: (instance.State === 'terminated' || volumeLoading) ? 0.5 : 1,
+                          border: 'none',
+                          whiteSpace: 'nowrap',
+                          transition: 'all 0.2s ease'
+                        }}
+                        title={instance.State === 'terminated' ? 'Cannot convert volumes of terminated instance' : 'Convert GP2 volumes to GP3 for cost savings'}
+                      >
+                        {volumeLoading ? '⏳ Converting...' : '💿 Convert Volumes'}
+                      </button>
+                    </td>
+                    
+                    {/* Instance Type Change Column */}
                     <td style={{ textAlign: 'center' }}>
                       <button
                         onClick={(e) => {
@@ -438,7 +511,7 @@ const InstanceDetailsTable = ({
                       </button>
                     </td>
                     
-                    {/* *** NEW COLUMN: Alarm Configuration *** */}
+                    {/* Alarm Configuration Column */}
                     <td style={{ textAlign: 'center' }}>
                       {statusInfo.status === 'agent_configured' && instance.State === 'running' ? (
                         <button
@@ -472,7 +545,7 @@ const InstanceDetailsTable = ({
                       )}
                     </td>
                     
-                    {/* *** NEW COLUMN: Alarm Active *** */}
+                    {/* Alarm Active Column */}
                     <td style={{ textAlign: 'center' }}>
                       {statusInfo.status === 'alarm_configured' ? (
                         <span style={{
@@ -495,7 +568,7 @@ const InstanceDetailsTable = ({
             </tbody>
           </table>
           
-          {/* Instructions */}
+          {/* Updated Instructions */}
           <div className="table-instructions" style={{
             padding: '16px',
             backgroundColor: '#F8FAFC',
@@ -507,6 +580,9 @@ const InstanceDetailsTable = ({
             <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
               <div>
                 <strong style={{ color: '#8B5CF6' }}>💡 Agent Installation:</strong> Click on unconfigured instance rows to install CloudWatch agent
+              </div>
+              <div>
+                <strong style={{ color: '#10B981' }}>💿 Volume Conversion:</strong> Convert GP2 volumes to GP3 for 20% cost savings
               </div>
               <div>
                 <strong style={{ color: '#F59E0B' }}>🔧 Instance Type Change:</strong> Use "Change Type" column to resize instances (causes downtime)
@@ -596,9 +672,18 @@ const InstanceDetailsTable = ({
         accountId={accountId}
         onSuccess={handleInstanceTypeChangeSuccess}
       />
+
+      {/* *** NEW: Volume Conversion Modal *** */}
+      <VolumeConversionModal
+        show={volumeConversionModal.show}
+        onHide={() => setVolumeConversionModal({ show: false, instance: null })}
+        instance={volumeConversionModal.instance}
+        accountId={accountId}
+        onSuccess={handleVolumeConversionSuccess}
+        onLoading={(loading) => setVolumeLoading(loading)}
+      />
     </>
   );
 };
 
 export default InstanceDetailsTable;
-         
