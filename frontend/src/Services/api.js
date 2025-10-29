@@ -1,6 +1,6 @@
-// Services/api.js - COMPLETE SECURE & ROBUST VERSION
+// Services/api.js - PRODUCTION-READY VERSION WITH GP2→GP3 VOLUME CONVERSION
 
-// ✅ SECURE: Use relative URLs - Nginx handles the proxying internally
+// ✅ PRODUCTION: Use Nginx proxy (relative URLs)
 const getBaseURL = () => {
   console.log(`🔒 Using secure Nginx proxy - Flask API protected!`);
   console.log(`🛡️ API calls go through Nginx proxy to localhost:5000`);
@@ -12,10 +12,11 @@ const getBaseURL = () => {
 
 const BASE = getBaseURL();
 
-// ✅ FIXED: Enhanced API call function with proper JSON checking
+// ✅ Enhanced API call with robust JSON handling
 const apiCall = async (endpoint, options = {}) => {
   const fullUrl = `${BASE}${endpoint}`;
-  console.log(`🔒 Secure API Call: ${fullUrl}`, options.body ? JSON.parse(options.body) : {});
+  console.log(`🔗 API Call: ${fullUrl}`);
+  console.log(`📤 Request data:`, options.body ? JSON.parse(options.body) : 'GET');
   
   try {
     const response = await fetch(fullUrl, {
@@ -24,26 +25,21 @@ const apiCall = async (endpoint, options = {}) => {
         'Content-Type': 'application/json',
         ...options.headers
       },
-      timeout: 30000
+      timeout: 10000
     });
     
-    console.log(`📥 Response status: ${response.status}`);
-    console.log(`📥 Content-Type: ${response.headers.get('content-type')}`);
+    console.log(`📥 Response Status: ${response.status}`);
     
-    // ✅ FIX: Check if response is actually JSON before parsing
     const contentType = response.headers.get('content-type');
     let data;
     
     if (contentType && contentType.includes('application/json')) {
-      // Safe to parse as JSON
       data = await response.json();
       console.log(`📥 JSON Response:`, data);
     } else {
-      // Not JSON - get as text to see what it actually is
       const responseText = await response.text();
       console.log(`📥 Non-JSON Response:`, responseText.substring(0, 200));
       
-      // If status is OK but not JSON, assume success
       if (response.ok) {
         data = { success: true, message: 'Operation completed (non-JSON response)' };
       } else {
@@ -70,14 +66,19 @@ const apiCall = async (endpoint, options = {}) => {
   }
 };
 
-// ✅ Connection Test Function
+// ✅ Connection Test
 export const testConnection = async () => {
   try {
+    const testUrl = `${BASE}/api/health`;
     console.log(`🧪 Testing secure Nginx proxy connection...`);
-    const response = await fetch(`/api/health`, { 
+    
+    const response = await fetch(testUrl, { 
       method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
       timeout: 5000 
     });
+    
+    console.log(`📡 Response status: ${response.status}`);
     
     if (response.ok) {
       const contentType = response.headers.get('content-type');
@@ -109,16 +110,10 @@ export const sendMessage = async ({ sessionId, message }) => {
   try {
     return await apiCall('/api/converse', {
       method: 'POST',
-      body: JSON.stringify({ 
-        session_id: sessionId, 
-        message 
-      })
+      body: JSON.stringify({ session_id: sessionId, message })
     });
   } catch (error) {
-    return { 
-      status: "error", 
-      message: error.message || 'Failed to send message'
-    };
+    return { status: "error", message: error.message || 'Failed to send message' };
   }
 };
 
@@ -168,7 +163,7 @@ export const configureAlarms = async (data) => {
       throw new Error('Missing required fields: instanceId, accountId, or region');
     }
     
-    const response = await fetch('/api/configure-alarms', {
+    const response = await fetch(`${BASE}/api/configure-alarms`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
@@ -176,7 +171,6 @@ export const configureAlarms = async (data) => {
     
     console.log(`🚨 Response status: ${response.status}`);
     
-    // ✅ Safe JSON parsing
     const contentType = response.headers.get('content-type');
     let result;
     
@@ -227,7 +221,7 @@ export const configureAlarms = async (data) => {
   }
 };
 
-// ✅ FIXED: Instance Type Change API - NOW WORKS PERFECTLY!
+// ✅ Instance Type Change API
 export const changeInstanceType = async (data) => {
   try {
     console.log('🔄 Securely changing instance type via Nginx proxy:', data);
@@ -236,7 +230,6 @@ export const changeInstanceType = async (data) => {
       throw new Error('Missing required fields: instanceId, accountId, region, or newInstanceType');
     }
     
-    // ✅ SECURE: Uses Nginx proxy, Flask port 5000 protected
     return await apiCall('/api/change-instance-type', {
       method: 'POST',
       body: JSON.stringify(data)
@@ -246,18 +239,152 @@ export const changeInstanceType = async (data) => {
   }
 };
 
-// ✅ Volume Conversion API (GP2 → GP3)
+// *** ✅ GP2 TO GP3 VOLUME CONVERSION APIs ***
+
+// ✅ Universal volume discovery
+export const findInstanceVolumes = async (params) => {
+  try {
+    console.log('🔍 Finding instance volumes:', params);
+    
+    if (!params.accountId || !params.region) {
+      throw new Error('Missing required fields: accountId, region');
+    }
+    
+    const requestData = {
+      accountId: params.accountId,
+      region: params.region,
+      instanceId: params.instanceId,
+      volumeTypeFilter: params.volumeTypeFilter || params.sourceVolumeType || 'gp2'
+    };
+    
+    return await apiCall('/api/find-gp2-volumes', {
+      method: 'POST',
+      body: JSON.stringify(requestData)
+    });
+  } catch (error) {
+    throw new Error(`Failed to find instance volumes: ${error.message}`);
+  }
+};
+
+// ✅ Find GP2 volumes
+export const findGp2Volumes = async (params) => {
+  try {
+    console.log('🔍 Finding GP2 volumes:', params);
+    
+    return await findInstanceVolumes({
+      ...params,
+      volumeTypeFilter: 'gp2'
+    });
+  } catch (error) {
+    throw new Error(`Failed to find GP2 volumes: ${error.message}`);
+  }
+};
+
+// ✅ Universal volume type conversion
+export const convertVolumeType = async (params) => {
+  try {
+    console.log('🔄 Converting volume type:', params);
+    
+    if (!params.accountId || !params.region || !params.volumeId) {
+      throw new Error('Missing required fields: accountId, region, volumeId');
+    }
+    
+    const requestData = {
+      accountId: params.accountId,
+      region: params.region,
+      volumeId: params.volumeId,
+      newVolumeType: params.newVolumeType || 'gp3',
+      targetIops: params.targetIops || params.customIops || null,
+      targetThroughput: params.targetThroughput || params.customThroughput || null
+    };
+    
+    return await apiCall('/api/convert-volume-universal', {
+      method: 'POST',
+      body: JSON.stringify(requestData)
+    });
+  } catch (error) {
+    throw new Error(`Failed to convert volume type: ${error.message}`);
+  }
+};
+
+// ✅ Convert GP2 to GP3 volumes
+export const convertGp2ToGp3Volumes = async (params) => {
+  try {
+    console.log('🔄 Converting GP2 to GP3 volumes:', params);
+    
+    if (!params.accountId || !params.region) {
+      throw new Error('Missing required fields: accountId, region');
+    }
+    
+    const volumeIds = params.volumeIds || (params.volumeId ? [params.volumeId] : []);
+    
+    if (volumeIds.length === 0) {
+      throw new Error('No volumes specified for conversion');
+    }
+    
+    const results = [];
+    let successCount = 0;
+    let failedCount = 0;
+    
+    for (const volumeId of volumeIds) {
+      try {
+        const result = await convertVolumeType({
+          accountId: params.accountId,
+          region: params.region,
+          volumeId: volumeId,
+          newVolumeType: 'gp3',
+          targetIops: params.targetIops,
+          targetThroughput: params.targetThroughput
+        });
+        
+        if (result.status === 'success') {
+          successCount++;
+          results.push({ volumeId, status: 'success', data: result.data });
+        } else {
+          failedCount++;
+          results.push({ volumeId, status: 'failed', error: result.message });
+        }
+      } catch (error) {
+        failedCount++;
+        results.push({ volumeId, status: 'failed', error: error.message });
+      }
+    }
+    
+    return {
+      status: successCount > 0 ? 'success' : 'error',
+      data: {
+        success: successCount > 0,
+        message: `GP2 to GP3 conversion: ${successCount} success, ${failedCount} failed`,
+        summary: {
+          totalVolumes: volumeIds.length,
+          successfulConversions: successCount,
+          failedConversions: failedCount
+        },
+        conversionResults: results
+      }
+    };
+    
+  } catch (error) {
+    throw new Error(`Failed to convert GP2 to GP3 volumes: ${error.message}`);
+  }
+};
+
+// ✅ Volume Conversion (Legacy support)
 export const convertVolumes = async (data) => {
   try {
     console.log('🔄 Converting volumes with data:', data);
     
-    if (!data.instanceId || !data.accountId || !data.region) {
-      throw new Error('Missing required fields: instanceId, accountId, or region');
+    if (!data.accountId || !data.region) {
+      throw new Error('Missing required fields: accountId, region');
     }
     
-    return await apiCall('/api/convert-volumes', {
-      method: 'POST',
-      body: JSON.stringify(data)
+    return await convertGp2ToGp3Volumes({
+      accountId: data.accountId,
+      region: data.region,
+      instanceId: data.instanceId,
+      volumeIds: data.volumeIds || [],
+      targetIops: data.targetIops || data.customIops,
+      targetThroughput: data.targetThroughput || data.customThroughput
     });
   } catch (error) {
     throw new Error(`Failed to convert volumes: ${error.message}`);
@@ -282,7 +409,7 @@ export const testDynamoDB = async () => {
   }
 };
 
-// ✅ Additional APIs (adding any you might need)
+// ✅ Termination Protection APIs
 export const getBulkTerminationProtection = async (data) => {
   try {
     return await apiCall('/api/bulk-termination-protection', {
@@ -308,7 +435,7 @@ export const setBulkTerminationProtection = async (data) => {
 // ✅ Export the base URL for debugging
 export const getApiBaseUrl = getBaseURL;
 
-// ✅ Auto-test secure connection on load
+// ✅ Auto-test secure connection
 (async () => {
   try {
     console.log('🔄 Testing secure Nginx proxy connection...');
@@ -316,6 +443,7 @@ export const getApiBaseUrl = getBaseURL;
     if (connectionTest.success) {
       console.log('🎉 SECURE API READY! All features work with full protection!');
       console.log('🛡️ Flask API is completely protected - only accessible via Nginx proxy!');
+      console.log('💿 GP2→GP3 volume conversion ready!');
     } else {
       console.warn('⚠️ Nginx proxy connection issue:', connectionTest.message);
     }
@@ -325,15 +453,15 @@ export const getApiBaseUrl = getBaseURL;
 })();
 
 console.log('🔧 SECURE Production Configuration:', {
-  userAccessUrl: `http://${window.location.hostname}:${window.location.port}`,
+  userAccessUrl: `http://${window.location.hostname}`,
   apiMethod: 'Nginx reverse proxy (relative URLs)',
   flaskSecurity: 'Port 5000 protected by Security Group',
   architecture: 'Enterprise-grade secure deployment',
-  jsonParsing: 'Robust with HTML error handling',
+  volumeConversion: 'GP2 → GP3 only',
   ready: true
 });
 
-// ✅ Complete export object
+// ✅ Complete export
 export default {
   BASE_URL: BASE,
   testConnection,
@@ -342,8 +470,12 @@ export default {
   discoverInstances,
   deployCloudWatchAgent,
   configureAlarms,
-  changeInstanceType,           // ← FIXED - NO MORE JSON ERRORS!
+  changeInstanceType,
+  findInstanceVolumes,
+  convertVolumeType,
   convertVolumes,
+  convertGp2ToGp3Volumes,
+  findGp2Volumes,
   healthCheck,
   testDynamoDB,
   getBulkTerminationProtection,
